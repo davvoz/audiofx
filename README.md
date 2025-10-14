@@ -2,6 +2,13 @@
 
 Create audio‑reactive videos by animating a still image based on the input audio’s frequency content and beats. Includes a simple CLI and a Tkinter GUI with presets.
 
+
+## Demo
+
+Check out this example video:
+
+[![Demo Video](https://img.youtube.com/vi/7xh1b1njanA/0.jpg)](https://www.youtube.com/shorts/7xh1b1njanA)
+
 ## Features
 
 - Audio‑reactive pipeline: color pulse, strobe, distortion, and glitch driven by bass/mid/treble energy and beat detection (librosa)
