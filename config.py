@@ -168,6 +168,43 @@ PSYCHEDELIC_REFRACTION_CONFIG = {
     }
 }
 
+INTELLIGENT_ADAPTIVE_CONFIG = {
+    'name': 'Intelligent Adaptive',
+    'colors': [
+        # Palette versatile che si adatta a ogni sezione
+        (0.9, 0.1, 0.9),    # Magenta energetico
+        (0.1, 0.9, 0.9),    # Cyan fresco
+        (0.9, 0.5, 0.1),    # Arancione caldo
+        (0.5, 0.1, 0.9),    # Viola profondo
+        (0.9, 0.9, 0.1),    # Giallo brillante
+        (0.1, 0.9, 0.5),    # Verde vivace
+        (0.9, 0.1, 0.5),    # Rosa intenso
+        (0.1, 0.5, 0.9),    # Blu elettrico
+    ],
+    'thresholds': {
+        'bass': 0.20,        # Bilanciato per analisi
+        'mid': 0.15,         # Sensibile ai cambi
+        'high': 0.12         # Reattivo agli alti
+    },
+    'effects': {
+        'strobe_intensity': 0.85,           # Variabile per sezione
+        'distortion_threshold': 0.30,       # Adattivo
+        'noise_level': 0.12,                # Medio
+        'flash_duration': 0.02,             # Rapido
+        # Parametri di analisi intelligente
+        'section_analysis': True,           # Abilita analisi sezioni
+        'energy_window': 2.0,               # Finestra analisi energia (secondi)
+        'transition_smoothing': 0.5,        # Smooth tra sezioni
+        'adaptive_intensity': 0.90,         # Intensità adattamento
+        # Soglie riconoscimento sezioni
+        'intro_threshold': 0.35,            # Energia bassa = intro
+        'buildup_slope': 0.15,              # Pendenza energia = buildup
+        'drop_impact': 0.75,                # Impatto improvviso = drop
+        'break_sparsity': 0.40,             # Bassa densità = break
+        'outro_decay': 0.30,                # Decadimento = outro
+    }
+}
+
 # =============================================================================
 # CONFIGURAZIONI EFFETTI AVANZATI
 # =============================================================================
@@ -266,7 +303,8 @@ def get_preset_config(preset_name: str) -> dict:
     Ottieni configurazione preset per nome
     
     Args:
-        preset_name: Nome del preset ('dark_techno', 'cyberpunk', 'industrial', 'acid_house', 'extreme_vibrant', 'psychedelic_refraction')
+        preset_name: Nome del preset ('dark_techno', 'cyberpunk', 'industrial', 'acid_house', 
+                     'extreme_vibrant', 'psychedelic_refraction', 'intelligent_adaptive')
         
     Returns:
         Dizionario con la configurazione
@@ -277,7 +315,8 @@ def get_preset_config(preset_name: str) -> dict:
         'industrial': INDUSTRIAL_CONFIG,
         'acid_house': ACID_HOUSE_CONFIG,
         'extreme_vibrant': EXTREME_VIBRANT_CONFIG,
-        'psychedelic_refraction': PSYCHEDELIC_REFRACTION_CONFIG
+        'psychedelic_refraction': PSYCHEDELIC_REFRACTION_CONFIG,
+        'intelligent_adaptive': INTELLIGENT_ADAPTIVE_CONFIG
     }
     
     return presets.get(preset_name.lower(), DARK_TECHNO_CONFIG)

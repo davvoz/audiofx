@@ -74,7 +74,7 @@ class App(tk.Tk):
         self.preset_combo = ttk.Combobox(
             frame,
             textvariable=self.preset_var,
-            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House", "Extreme Vibrant", "Psychedelic Refraction"],
+            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House", "Extreme Vibrant", "Psychedelic Refraction", "Intelligent Adaptive"],
             state="readonly",
             width=30,
         )
@@ -167,7 +167,7 @@ class App(tk.Tk):
         self.sync_preset_combo = ttk.Combobox(
             frame,
             textvariable=self.sync_preset_var,
-            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House", "Extreme Vibrant", "Psychedelic Refraction"],
+            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House", "Extreme Vibrant", "Psychedelic Refraction", "Intelligent Adaptive"],
             state="readonly",
             width=30,
         )
@@ -394,6 +394,7 @@ class App(tk.Tk):
             "Acid House": "acid_house",
             "Extreme Vibrant": "extreme_vibrant",
             "Psychedelic Refraction": "psychedelic_refraction",
+            "Intelligent Adaptive": "intelligent_adaptive",
         }
         preset_key = name_to_key.get(self.preset_var.get(), "dark_techno")
         preset = get_preset_config(preset_key)
@@ -444,6 +445,8 @@ class App(tk.Tk):
                     effect_style = "extreme"
                 elif preset_key == "psychedelic_refraction":
                     effect_style = "psychedelic"
+                elif preset_key == "intelligent_adaptive":
+                    effect_style = "intelligent"
                 else:
                     effect_style = "standard"
                 
@@ -498,6 +501,7 @@ class App(tk.Tk):
             "Acid House": "acid_house",
             "Extreme Vibrant": "extreme_vibrant",
             "Psychedelic Refraction": "psychedelic_refraction",
+            "Intelligent Adaptive": "intelligent_adaptive",
         }
         preset_key = name_to_key.get(self.sync_preset_var.get(), "dark_techno")
         preset = get_preset_config(preset_key)

@@ -161,6 +161,141 @@ class AudioVisualFX:
             import traceback
             traceback.print_exc()
             return np.array([])
+    
+    @staticmethod
+    def _analyze_track_sections(
+        y: np.ndarray,
+        sr: int,
+        bass_energy: np.ndarray,
+        mid_energy: np.ndarray,
+        treble_energy: np.ndarray
+    ) -> List[dict]:
+        """
+        Analizza la traccia audio per riconoscere le diverse sezioni musicali.
+        Restituisce una lista di sezioni con tipo, start, end e caratteristiche.
+        
+        Tipi di sezione:
+        - 'intro': Introduzione (bassa energia, graduale incremento)
+        - 'buildup': Crescita tensione (energia crescente, spesso con riser)
+        - 'drop': Climax energetico (impatto improvviso, alta energia)
+        - 'breakdown': Calo energia (transizione, spesso melodica)
+        - 'outro': Conclusione (decadimento energia)
+        - 'steady': Sezione stabile (energia costante)
+        """
+        print("\n🧠 Analisi intelligente sezioni traccia...")
+        
+        # Calcola energia totale per frame
+        total_energy = (bass_energy + mid_energy + treble_energy) / 3.0
+        
+        # Parametri analisi
+        window_size = int(sr / 512 * 2)  # ~2 secondi
+        
+        # Smooth energy per ridurre variazioni rapide
+        from scipy.ndimage import gaussian_filter1d
+        smooth_energy = gaussian_filter1d(total_energy, sigma=window_size // 4)
+        
+        # Calcola derivata (rate of change) dell'energia
+        energy_diff = np.diff(smooth_energy, prepend=smooth_energy[0])
+        
+        # Normalizza
+        energy_diff_norm = energy_diff / (np.max(np.abs(energy_diff)) + 1e-10)
+        
+        sections = []
+        current_section = None
+        
+        # Analizza frame per frame
+        for i in range(len(total_energy)):
+            time = i / len(total_energy) * len(y) / sr
+            energy = smooth_energy[i]
+            slope = energy_diff_norm[i] if i < len(energy_diff_norm) else 0
+            
+            # Determina tipo sezione
+            section_type = None
+            
+            # Intro: bassa energia all'inizio
+            if time < 15 and energy < 0.35:
+                section_type = 'intro'
+            
+            # Buildup: energia crescente rapidamente
+            elif slope > 0.15 and energy < 0.70:
+                section_type = 'buildup'
+            
+            # Drop: alta energia improvvisa
+            elif energy > 0.75 or (slope > 0.25 and energy > 0.60):
+                section_type = 'drop'
+            
+            # Breakdown: calo energia dopo drop
+            elif slope < -0.10 and energy < 0.50:
+                section_type = 'breakdown'
+            
+            # Outro: decadimento finale
+            elif time > len(y) / sr - 20 and energy < 0.30:
+                section_type = 'outro'
+            
+            # Steady: energia stabile
+            else:
+                section_type = 'steady'
+            
+            # Gestione sezioni
+            if current_section is None:
+                current_section = {
+                    'type': section_type,
+                    'start_frame': i,
+                    'start_time': time,
+                    'avg_energy': energy,
+                    'avg_bass': bass_energy[i],
+                    'avg_mid': mid_energy[i],
+                    'avg_treble': treble_energy[i]
+                }
+            elif section_type != current_section['type']:
+                # Completa sezione corrente
+                current_section['end_frame'] = i - 1
+                current_section['end_time'] = time
+                current_section['duration'] = time - current_section['start_time']
+                sections.append(current_section)
+                
+                # Inizia nuova sezione
+                current_section = {
+                    'type': section_type,
+                    'start_frame': i,
+                    'start_time': time,
+                    'avg_energy': energy,
+                    'avg_bass': bass_energy[i],
+                    'avg_mid': mid_energy[i],
+                    'avg_treble': treble_energy[i]
+                }
+        
+        # Completa ultima sezione
+        if current_section:
+            current_section['end_frame'] = len(total_energy) - 1
+            current_section['end_time'] = len(y) / sr
+            current_section['duration'] = current_section['end_time'] - current_section['start_time']
+            sections.append(current_section)
+        
+        # Merge sezioni troppo corte (< 2 secondi)
+        merged_sections = []
+        for sec in sections:
+            if sec['duration'] >= 2.0 or not merged_sections:
+                merged_sections.append(sec)
+            else:
+                # Merge con precedente
+                merged_sections[-1]['end_frame'] = sec['end_frame']
+                merged_sections[-1]['end_time'] = sec['end_time']
+                merged_sections[-1]['duration'] = merged_sections[-1]['end_time'] - merged_sections[-1]['start_time']
+        
+        # Log sezioni rilevate
+        print(f"\n📊 Sezioni rilevate: {len(merged_sections)}")
+        for i, sec in enumerate(merged_sections, 1):
+            emoji = {
+                'intro': '🎵', 'buildup': '📈', 'drop': '💥',
+                'breakdown': '🎹', 'outro': '🌅', 'steady': '🔄'
+            }.get(sec['type'], '❓')
+            print(f"  {i}. {emoji} {sec['type'].upper():12} | "
+                  f"{sec['start_time']:6.1f}s - {sec['end_time']:6.1f}s | "
+                  f"Durata: {sec['duration']:5.1f}s | "
+                  f"Energia: {sec['avg_energy']:.2f}")
+        
+        return merged_sections
 
     # ------------------------------- FX passes ------------------------------ #
     def _color_pulse(
@@ -589,6 +724,164 @@ class AudioVisualFX:
         
         return result
     
+    def _apply_section_effects(
+        self,
+        frame: np.ndarray,
+        section_type: str,
+        bass: float,
+        mid: float,
+        treble: float,
+        beat_intensity: float,
+        current_time: float,
+        color_index: int
+    ) -> np.ndarray:
+        """
+        Applica effetti specifici basati sul tipo di sezione musicale.
+        """
+        
+        if section_type == 'intro':
+            # ===== INTRO: Effetti minimalisti e graduali =====
+            # Color pulse soft
+            frame = self._color_pulse(frame, bass * 0.6, mid * 0.5, treble * 0.5, beat_intensity * 0.3)
+            
+            # Zoom molto leggero
+            if bass > 0.3:
+                frame = self._zoom_pulse(frame, bass * 0.4)
+            
+            # Liquid flow dolce
+            frame = self._liquid_flow(frame, bass * 0.5, current_time)
+            
+            # Strobe minimo
+            total_intensity = (bass + mid + treble) / 3
+            if total_intensity > 0.5:
+                frame = self._strobe(frame, total_intensity * 0.5, color_index)
+        
+        elif section_type == 'buildup':
+            # ===== BUILDUP: Crescita tensione, effetti progressivi =====
+            # Intensità crescente nel tempo (simula buildup)
+            buildup_factor = 1.0 + (bass + mid) * 0.5
+            
+            # Color pulse intenso
+            frame = self._color_pulse(frame, bass * 1.2, mid * 1.1, treble, beat_intensity * 0.7)
+            
+            # Zoom crescente
+            frame = self._zoom_pulse(frame, bass * buildup_factor * 0.9)
+            
+            # Distorsione crescente
+            total_intensity = (bass * 1.3 + mid * 1.2 + treble) / 3
+            frame = self._distort(frame, total_intensity * 0.8)
+            
+            # Chromatic aberration
+            frame = self._chromatic_aberration(frame, treble * 0.9)
+            
+            # Screen shake crescente
+            frame = self._screen_shake(frame, mid * buildup_factor * 0.7)
+            
+            # Strobe crescente
+            frame = self._strobe(frame, total_intensity * 0.85, color_index)
+        
+        elif section_type == 'drop':
+            # ===== DROP: Massima energia, tutti gli effetti al top =====
+            # Color pulse estremo
+            frame = self._color_pulse(frame, bass * 1.4, mid * 1.3, treble * 1.2, beat_intensity)
+            
+            # Zoom esplosivo
+            frame = self._zoom_pulse(frame, bass * 1.3)
+            
+            # Bubble distortion sui bassi forti
+            if bass > 0.5:
+                frame = self._bubble_distortion(frame, bass * 1.2)
+            
+            # Screen shake intenso
+            frame = self._screen_shake(frame, (mid + beat_intensity) * 0.8)
+            
+            # Distorsione massima
+            total_intensity = (bass * 1.5 + mid * 1.3 + treble * 1.2) / 3
+            frame = self._distort(frame, total_intensity)
+            
+            # Chromatic aberration forte
+            frame = self._chromatic_aberration(frame, treble * 1.2)
+            
+            # RGB split
+            frame = self._rgb_split(frame, treble * 1.1)
+            
+            # Strobe massimo
+            frame = self._strobe(frame, total_intensity, color_index)
+            
+            # Glitch sui beat
+            if beat_intensity > 0.7:
+                frame = self._glitch(frame, beat_intensity * 0.8)
+            
+            # Scariche elettriche
+            if beat_intensity > 0.6:
+                current_color = self.dark_colors[color_index]
+                frame = self._electric_arcs(frame, beat_intensity, current_color)
+        
+        elif section_type == 'breakdown':
+            # ===== BREAKDOWN: Effetti melodici e fluidi =====
+            # Color pulse melodico
+            frame = self._color_pulse(frame, bass * 0.7, mid * 0.9, treble * 1.1, beat_intensity * 0.5)
+            
+            # Liquid flow prominente
+            frame = self._liquid_flow(frame, (bass + mid) * 0.7, current_time)
+            
+            # Prism split
+            frame = self._prism_split(frame, treble * 0.9, current_time)
+            
+            # Distorsione leggera
+            total_intensity = (bass * 0.7 + mid * 0.8 + treble) / 3
+            frame = self._distort(frame, total_intensity * 0.5)
+            
+            # Chromatic aberration soft
+            frame = self._chromatic_aberration(frame, treble * 0.6)
+            
+            # Scan lines
+            frame = self._scan_lines(frame, mid * 0.6)
+        
+        elif section_type == 'outro':
+            # ===== OUTRO: Effetti che decadono, atmosferici =====
+            # Color pulse decrescente
+            frame = self._color_pulse(frame, bass * 0.5, mid * 0.4, treble * 0.6, beat_intensity * 0.2)
+            
+            # Liquid flow lento
+            frame = self._liquid_flow(frame, bass * 0.4, current_time * 0.5)
+            
+            # Zoom minimo
+            if bass > 0.3:
+                frame = self._zoom_pulse(frame, bass * 0.3)
+            
+            # Distorsione minima
+            total_intensity = (bass + mid + treble) / 3
+            frame = self._distort(frame, total_intensity * 0.3)
+            
+            # VHS distortion occasionale (effetto "fine cassetta")
+            if np.random.random() < 0.3:
+                frame = self._vhs_distortion(frame, treble * 0.5)
+        
+        else:  # 'steady'
+            # ===== STEADY: Effetti bilanciati e stabili =====
+            # Color pulse normale
+            frame = self._color_pulse(frame, bass, mid, treble, beat_intensity * 0.6)
+            
+            # Zoom moderato
+            frame = self._zoom_pulse(frame, bass * 0.7)
+            
+            # Distorsione media
+            total_intensity = (bass + mid + treble) / 3
+            frame = self._distort(frame, total_intensity * 0.6)
+            
+            # Chromatic aberration
+            frame = self._chromatic_aberration(frame, treble * 0.7)
+            
+            # Strobe medio
+            frame = self._strobe(frame, total_intensity * 0.7, color_index)
+            
+            # Glitch occasionale
+            if np.random.random() < 0.1:
+                frame = self._glitch(frame, (bass + treble) * 0.4)
+        
+        return frame
+    
     @staticmethod
     def _prism_split(img: np.ndarray, intensity: float, frame_time: float) -> np.ndarray:
         """
@@ -693,6 +986,12 @@ class AudioVisualFX:
         print(f"DEBUG: Rilevamento beat...")
         beat_times = self._detect_beats(y, sr)
         print(f"DEBUG: Beat rilevati: {len(beat_times)}")
+        
+        # Analisi sezioni intelligente (se richiesto)
+        sections = None
+        if self.effect_style == "intelligent":
+            sections = self._analyze_track_sections(y, sr, bass, mid, treble)
+            print(f"🧠 Modalità intelligente attivata con {len(sections)} sezioni")
 
         img = cv2.imread(self.image_file)
         if img is None:
@@ -721,7 +1020,31 @@ class AudioVisualFX:
             total_intensity = (bass[i] + mid[i] + treble[i]) / 3
             color_index = int(current_time * 2) % len(self.dark_colors)
             
-            if self.effect_style == "psychedelic":
+            if self.effect_style == "intelligent":
+                # ========== INTELLIGENT ADAPTIVE: Effetti basati su analisi sezioni ==========
+                # Trova sezione corrente
+                current_section_type = 'steady'  # default
+                if sections:
+                    for section in sections:
+                        # Converti tempo frame in tempo audio
+                        audio_time = (i / num_frames) * (len(y) / sr)
+                        if section['start_time'] <= audio_time <= section['end_time']:
+                            current_section_type = section['type']
+                            break
+                
+                # Applica effetti specifici per la sezione
+                frame = self._apply_section_effects(
+                    frame, 
+                    current_section_type,
+                    bass[i], 
+                    mid[i], 
+                    treble[i],
+                    beat_intensity,
+                    current_time,
+                    color_index
+                )
+            
+            elif self.effect_style == "psychedelic":
                 # ========== PSYCHEDELIC REFRACTION: EFFETTI DI RIFRAZIONE INTELLIGENTE ==========
                 
                 # RIFRAZIONE PRINCIPALE - Effetto prismatico fluido

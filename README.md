@@ -221,7 +221,7 @@ Advanced color/threshold presets live in `config.py`. The GUI maps user‑friend
 - Zoom, shake, glitch, scariche elettriche
 - Per produzioni estreme
 
-#### 🔮 **Psychedelic Refraction** (NEW!)
+#### 🔮 **Psychedelic Refraction**
 - **Effetto rifrazione intelligente tra pixels**
 - **Distorsioni psichedeliche fluide**
 - 8 colori prismatici (rosa, turchese, viola, arancione acido)
@@ -237,6 +237,33 @@ Advanced color/threshold presets live in `config.py`. The GUI maps user‑friend
   - Mid → Intensifica rifrazioni
   - Alti → Split prismatico e dispersione
   - Beat → Flash kaleidoscopico
+
+#### 🧠 **Intelligent Adaptive** (NEW!)
+- **Sistema di riconoscimento automatico delle sezioni musicali**
+- **Effetti che si adattano dinamicamente alla struttura del brano**
+- 8 colori versatili che cambiano con le sezioni
+- **Analisi automatica intelligente:**
+  - 🎵 **Intro**: Effetti minimalisti e graduali
+  - 📈 **Buildup**: Crescita tensione progressiva
+  - 💥 **Drop**: Energia massima, tutti gli effetti al top
+  - 🎹 **Breakdown**: Effetti melodici e fluidi
+  - 🌅 **Outro**: Decadimento atmosferico
+  - 🔄 **Steady**: Effetti bilanciati e stabili
+- **Algoritmo intelligente:**
+  - Analizza energia totale e slope per frame
+  - Riconosce automaticamente le parti del brano
+  - Applica effetti appropriati per ogni sezione
+  - Transizioni fluide tra sezioni
+- **Vantaggi:**
+  - ✅ Zero configurazione manuale
+  - ✅ Risultati professionali automatici
+  - ✅ Si adatta a qualsiasi genere con struttura chiara
+  - ✅ Massimizza impatto visivo per ogni momento
+- **Ideale per:**
+  - Tracce con struttura intro-buildup-drop-breakdown
+  - Musica elettronica (house, techno, trance, dubstep)
+  - Mix e DJ set
+  - Quando vuoi il massimo risultato senza tweaking
 
 **Uso del preset Psychedelic Refraction:**
 
