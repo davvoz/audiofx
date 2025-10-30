@@ -74,7 +74,7 @@ class App(tk.Tk):
         self.preset_combo = ttk.Combobox(
             frame,
             textvariable=self.preset_var,
-            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House"],
+            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House", "Extreme Vibrant"],
             state="readonly",
             width=30,
         )
@@ -167,7 +167,7 @@ class App(tk.Tk):
         self.sync_preset_combo = ttk.Combobox(
             frame,
             textvariable=self.sync_preset_var,
-            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House"],
+            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House", "Extreme Vibrant"],
             state="readonly",
             width=30,
         )
@@ -392,6 +392,7 @@ class App(tk.Tk):
             "Cyberpunk": "cyberpunk",
             "Industrial": "industrial",
             "Acid House": "acid_house",
+            "Extreme Vibrant": "extreme_vibrant",
         }
         preset_key = name_to_key.get(self.preset_var.get(), "dark_techno")
         preset = get_preset_config(preset_key)
@@ -402,6 +403,9 @@ class App(tk.Tk):
             float(th.get("mid", 0.2)),
             float(th.get("high", 0.15)),
         )
+        
+        # Debug: verifica thresholds
+        print(f"DEBUG: Preset={preset_key}, Thresholds={thresholds}")
 
         self._cancel = False
         self.run_btn.config(state=tk.DISABLED)
@@ -433,6 +437,10 @@ class App(tk.Tk):
                     "Bottom-Right": "bottom-right",
                 }
                 pos = pos_map.get(self.logo_position.get(), "top-right")
+                
+                # Determina lo stile effetti
+                effect_style = "extreme" if preset_key == "extreme_vibrant" else "standard"
+                
                 generate_video(
                     audio,
                     image,
@@ -442,6 +450,7 @@ class App(tk.Tk):
                     progress_cb=progress_cb,
                     colors=colors,
                     thresholds=thresholds,
+                    effect_style=effect_style,
                     logo=self.logo_path.get().strip() or None,
                     logo_position=pos,
                     logo_scale=float(self.logo_scale.get()),
@@ -450,7 +459,8 @@ class App(tk.Tk):
                 )
                 self.after(0, lambda: messagebox.showinfo("Completato", f"Video creato: {output}"))
             except Exception as e:
-                self.after(0, lambda: messagebox.showerror("Errore", str(e)))
+                error_msg = str(e)
+                self.after(0, lambda msg=error_msg: messagebox.showerror("Errore", msg))
             finally:
                 self.after(0, lambda: self.run_btn.config(state=tk.NORMAL))
                 self.after(0, lambda: self.cancel_btn.config(state=tk.DISABLED))
@@ -480,6 +490,7 @@ class App(tk.Tk):
             "Cyberpunk": "cyberpunk",
             "Industrial": "industrial",
             "Acid House": "acid_house",
+            "Extreme Vibrant": "extreme_vibrant",
         }
         preset_key = name_to_key.get(self.sync_preset_var.get(), "dark_techno")
         preset = get_preset_config(preset_key)
@@ -490,6 +501,9 @@ class App(tk.Tk):
             float(th.get("mid", 0.2)),
             float(th.get("high", 0.15)),
         )
+        
+        # Debug: verifica thresholds
+        print(f"DEBUG: Preset={preset_key}, Thresholds={thresholds}")
         
         self._cancel = False
         self.sync_run_btn.config(state=tk.DISABLED)
@@ -544,7 +558,8 @@ class App(tk.Tk):
                 )
                 self.after(0, lambda: messagebox.showinfo("Completato", f"Video sincronizzato con effetti: {output}"))
             except Exception as e:
-                self.after(0, lambda: messagebox.showerror("Errore", str(e)))
+                error_msg = str(e)
+                self.after(0, lambda msg=error_msg: messagebox.showerror("Errore", msg))
             finally:
                 self.after(0, lambda: self.sync_run_btn.config(state=tk.NORMAL))
                 self.after(0, lambda: self.sync_cancel_btn.config(state=tk.DISABLED))

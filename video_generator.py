@@ -44,6 +44,7 @@ class AudioVisualFX:
         colors: Optional[List[Tuple[float, float, float]]] = None,
         thresholds: Optional[Tuple[float, float, float]] = None,
         target_resolution: Tuple[int, int] = (720, 720),
+        effect_style: str = "standard",  # "standard" o "extreme"
         # Logo options
         logo_file: Optional[str] = None,
         logo_position: str = "top-right",
@@ -77,6 +78,9 @@ class AudioVisualFX:
         ]
 
         self.target_resolution = target_resolution
+        
+        # effect style
+        self.effect_style = effect_style
 
         # logo configuration
         self.logo_file = logo_file
@@ -94,14 +98,24 @@ class AudioVisualFX:
         if self.progress_cb:
             self.progress_cb("status", {"message": "Analisi audio..."})
 
-        y, sr = librosa.load(self.audio_file, duration=self.duration)
+        try:
+            y, sr = librosa.load(self.audio_file, duration=self.duration)
+            print(f"DEBUG: Audio caricato - Sample rate: {sr}, Durata: {len(y)/sr:.2f}s")
+        except Exception as e:
+            raise RuntimeError(f"Errore caricamento audio: {e}")
 
         hop_length = max(1, sr // self.fps)
         n_fft = 2048
-        stft = librosa.stft(y, n_fft=n_fft, hop_length=hop_length)
-        magnitude = np.abs(stft)
-        frequencies = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
-        return y, sr, frequencies, magnitude
+        print(f"DEBUG: hop_length={hop_length}, n_fft={n_fft}, fps={self.fps}")
+        
+        try:
+            stft = librosa.stft(y, n_fft=n_fft, hop_length=hop_length)
+            magnitude = np.abs(stft)
+            frequencies = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
+            print(f"DEBUG: STFT completato - magnitude shape: {magnitude.shape}")
+            return y, sr, frequencies, magnitude
+        except Exception as e:
+            raise RuntimeError(f"Errore analisi spettrale: {e}")
 
     @staticmethod
     def _extract_frequency_bands(
@@ -127,8 +141,23 @@ class AudioVisualFX:
 
     @staticmethod
     def _detect_beats(y: np.ndarray, sr: int) -> np.ndarray:
-        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
-        return librosa.frames_to_time(beat_frames, sr=sr)
+        try:
+            print(f"DEBUG _detect_beats: y.shape={y.shape}, sr={sr}")
+            # Usa parametri più robusti per evitare errori
+            tempo, beat_frames = librosa.beat.beat_track(
+                y=y, 
+                sr=sr,
+                hop_length=512,
+                start_bpm=120.0,
+                units='frames'
+            )
+            print(f"DEBUG _detect_beats: Successo! tempo={tempo}, beat_frames={len(beat_frames)}")
+            return librosa.frames_to_time(beat_frames, sr=sr)
+        except Exception as e:
+            print(f"WARNING _detect_beats: Beat detection failed: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            return np.array([])
 
     # ------------------------------- FX passes ------------------------------ #
     def _color_pulse(
@@ -217,6 +246,186 @@ class AudioVisualFX:
                 if ly + lh < h:
                     result[ly : ly + lh, :] = np.roll(result[ly : ly + lh, :], shift, axis=1)
         return result
+    
+    @staticmethod
+    def _chromatic_aberration(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto aberrazione cromatica cyberpunk - separa i canali RGB."""
+        if intensity < 0.3:
+            return img
+        result = img.copy()
+        h, w = img.shape[:2]
+        shift_amount = int((intensity - 0.3) * 15)
+        
+        # Separa canali RGB e shifta in direzioni diverse
+        result[:, :, 0] = np.roll(img[:, :, 0], -shift_amount, axis=1)  # Rosso a sinistra
+        result[:, :, 2] = np.roll(img[:, :, 2], shift_amount, axis=1)   # Blu a destra
+        
+        return result
+    
+    @staticmethod
+    def _electric_arcs(img: np.ndarray, intensity: float, color: Tuple[float, float, float]) -> np.ndarray:
+        """Effetto scariche elettriche - linee luminose casuali."""
+        if intensity < 0.7:
+            return img
+        result = img.copy()
+        h, w = img.shape[:2]
+        
+        num_arcs = int((intensity - 0.7) * 20)
+        for _ in range(num_arcs):
+            # Genera punti casuali per l'arco
+            x1, y1 = np.random.randint(0, w), np.random.randint(0, h)
+            x2, y2 = np.random.randint(0, w), np.random.randint(0, h)
+            
+            # Colore elettrico brillante
+            arc_color = tuple(int(c * 255) for c in color)
+            thickness = np.random.randint(1, 4)
+            
+            # Disegna linea con glow
+            cv2.line(result, (x1, y1), (x2, y2), arc_color, thickness)
+            
+            # Aggiungi glow
+            if intensity > 0.85:
+                cv2.line(result, (x1, y1), (x2, y2), (255, 255, 255), 1)
+        
+        # Blending per effetto glow
+        result = cv2.addWeighted(img, 0.7, result, 0.3, 0)
+        return result
+    
+    @staticmethod
+    def _bubble_distortion(img: np.ndarray, bass_intensity: float) -> np.ndarray:
+        """Effetto bolla sui bassi - deformazione fluida circolare."""
+        if bass_intensity < 0.4:
+            return img
+        
+        h, w = img.shape[:2]
+        factor = (bass_intensity - 0.4) * 30
+        
+        # Centro della bolla (al centro dell'immagine)
+        cx, cy = w // 2, h // 2
+        
+        # Crea griglia di coordinate
+        y_coords, x_coords = np.indices((h, w), dtype=np.float32)
+        
+        # Calcola distanza dal centro
+        dx = x_coords - cx
+        dy = y_coords - cy
+        distance = np.sqrt(dx**2 + dy**2)
+        
+        # Effetto bolla: espansione dal centro
+        max_distance = np.sqrt(cx**2 + cy**2)
+        normalized_distance = distance / max_distance
+        
+        # Funzione di deformazione (più forte al centro)
+        deformation = factor * np.sin(normalized_distance * np.pi) * (1 - normalized_distance)
+        
+        # Applica deformazione
+        angle = np.arctan2(dy, dx)
+        map_x = x_coords + deformation * np.cos(angle)
+        map_y = y_coords + deformation * np.sin(angle)
+        
+        # Remap
+        result = cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+        return result
+    
+    @staticmethod
+    def _zoom_pulse(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto zoom pulsante - ingrandisce e rimpicciolisce."""
+        if intensity < 0.3:
+            return img
+        
+        h, w = img.shape[:2]
+        zoom_factor = 1.0 + (intensity - 0.3) * 0.5  # Max 1.35x zoom
+        
+        # Calcola nuove dimensioni
+        new_w = int(w * zoom_factor)
+        new_h = int(h * zoom_factor)
+        
+        # Zoom in
+        zoomed = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+        
+        # Crop al centro per tornare alle dimensioni originali
+        start_x = (new_w - w) // 2
+        start_y = (new_h - h) // 2
+        result = zoomed[start_y:start_y+h, start_x:start_x+w]
+        
+        return result
+    
+    @staticmethod
+    def _screen_shake(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto shake dello schermo - sposta l'immagine casualmente."""
+        if intensity < 0.5:
+            return img
+        
+        h, w = img.shape[:2]
+        shake_amount = int((intensity - 0.5) * 30)
+        
+        # Se shake_amount è 0, nessun shake
+        if shake_amount <= 0:
+            return img
+        
+        # Offset casuali
+        offset_x = np.random.randint(-shake_amount, shake_amount + 1)
+        offset_y = np.random.randint(-shake_amount, shake_amount + 1)
+        
+        # Matrice di traslazione
+        M = np.float32([[1, 0, offset_x], [0, 1, offset_y]])
+        result = cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REFLECT)
+        
+        return result
+    
+    @staticmethod
+    def _rgb_split(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto split RGB estremo - separa drasticamente i canali."""
+        if intensity < 0.6:
+            return img
+        
+        result = img.copy()
+        split_amount = int((intensity - 0.6) * 25)
+        
+        # Split verticale
+        result[:, :, 0] = np.roll(img[:, :, 0], split_amount, axis=0)    # Rosso su
+        result[:, :, 1] = img[:, :, 1]                                    # Verde fermo
+        result[:, :, 2] = np.roll(img[:, :, 2], -split_amount, axis=0)   # Blu giù
+        
+        return result
+    
+    @staticmethod
+    def _scan_lines(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto scan lines CRT - linee orizzontali."""
+        if intensity < 0.4:
+            return img
+        
+        result = img.copy().astype(np.float32)
+        h = img.shape[0]
+        
+        # Crea pattern di scan lines
+        line_intensity = (intensity - 0.4) * 0.6
+        for y in range(0, h, 3):
+            result[y:y+1, :] = result[y:y+1, :] * (1.0 - line_intensity)
+        
+        return np.clip(result, 0, 255).astype(np.uint8)
+    
+    @staticmethod
+    def _vhs_distortion(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto distorsione VHS - shift orizzontali casuali."""
+        if intensity < 0.5:
+            return img
+        
+        result = img.copy()
+        h = img.shape[0]
+        
+        # Numero di bande distorte
+        num_bands = int((intensity - 0.5) * 15)
+        
+        for _ in range(num_bands):
+            y = np.random.randint(0, h - 10)
+            band_height = np.random.randint(2, 8)
+            shift = np.random.randint(-30, 30)
+            
+            if y + band_height < h:
+                result[y:y+band_height, :] = np.roll(result[y:y+band_height, :], shift, axis=1)
+        
+        return result
 
     # ------------------------------ Logo overlay --------------------------- #
     def _prepare_logo(self, frame_w: int, frame_h: int) -> None:
@@ -281,8 +490,12 @@ class AudioVisualFX:
     # ----------------------------- Frame pipeline --------------------------- #
     def _generate_frames(self) -> List[np.ndarray]:
         y, sr, frequencies, magnitude = self._load_and_analyze_audio()
+        print(f"DEBUG: Estrazione bande di frequenza...")
         bass, mid, treble = self._extract_frequency_bands(magnitude, frequencies)
+        print(f"DEBUG: Bande estratte - bass: {len(bass)}, mid: {len(mid)}, treble: {len(treble)}")
+        print(f"DEBUG: Rilevamento beat...")
         beat_times = self._detect_beats(y, sr)
+        print(f"DEBUG: Beat rilevati: {len(beat_times)}")
 
         img = cv2.imread(self.image_file)
         if img is None:
@@ -305,13 +518,61 @@ class AudioVisualFX:
                     beat_intensity = 1.0
                     break
 
-            frame = self._color_pulse(img, bass[i], mid[i], treble[i], beat_intensity)
+            # Base frame
+            frame = img.copy()
+            
             total_intensity = (bass[i] + mid[i] + treble[i]) / 3
             color_index = int(current_time * 2) % len(self.dark_colors)
-            frame = self._strobe(frame, total_intensity, color_index)
-            frame = self._distort(frame, total_intensity)
-            glitch_intensity = bass[i] * 0.5 + treble[i] * 0.5
-            frame = self._glitch(frame, glitch_intensity)
+            
+            if self.effect_style == "extreme":
+                # ========== EXTREME VIBRANT: EFFETTI ELETTRICI E DISTORSIVI ==========
+                # Zoom pulsante sui bassi
+                frame = self._zoom_pulse(frame, bass[i] * 1.2)
+                
+                # Effetto bolla sui bassi
+                frame = self._bubble_distortion(frame, bass[i])
+                
+                # Screen shake su snare/mid (vibrazioni intense)
+                frame = self._screen_shake(frame, mid[i] * 1.3)
+                
+                # Effetti colore base
+                frame = self._color_pulse(frame, bass[i], mid[i], treble[i], beat_intensity)
+                
+                # Strobe
+                frame = self._strobe(frame, total_intensity, color_index)
+                
+                # Distorsione base
+                frame = self._distort(frame, total_intensity)
+                
+                # Aberrazione cromatica
+                frame = self._chromatic_aberration(frame, treble[i] * 1.1)
+                
+                # RGB Split estremo su alti
+                frame = self._rgb_split(frame, treble[i] * 1.2)
+                
+                # Glitch base
+                glitch_intensity = bass[i] * 0.5 + treble[i] * 0.5
+                frame = self._glitch(frame, glitch_intensity)
+                
+                # Scariche elettriche sui beat
+                if beat_intensity > 0.5:
+                    current_color = self.dark_colors[color_index]
+                    frame = self._electric_arcs(frame, beat_intensity, current_color)
+                
+                # Scan lines CRT
+                frame = self._scan_lines(frame, mid[i] * 0.8)
+                
+                # VHS distortion casuale
+                if np.random.random() < treble[i] * 0.3:
+                    frame = self._vhs_distortion(frame, treble[i])
+            else:
+                # ========== STANDARD: EFFETTI CLASSICI ==========
+                frame = self._color_pulse(frame, bass[i], mid[i], treble[i], beat_intensity)
+                frame = self._strobe(frame, total_intensity, color_index)
+                frame = self._distort(frame, total_intensity)
+                glitch_intensity = bass[i] * 0.5 + treble[i] * 0.5
+                frame = self._glitch(frame, glitch_intensity)
+            
             # Overlay logo last to keep it stable
             frame = self._overlay_logo(frame)
 
@@ -325,7 +586,14 @@ class AudioVisualFX:
     def create_video(self) -> None:
         if self.progress_cb:
             self.progress_cb("status", {"message": "Generazione frame..."})
-        frames = self._generate_frames()
+        
+        try:
+            frames = self._generate_frames()
+        except Exception as e:
+            print(f"ERROR in _generate_frames: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
         temp_dir = "temp_frames"
         os.makedirs(temp_dir, exist_ok=True)
@@ -573,8 +841,19 @@ class VideoAudioFX:
     @staticmethod
     def _detect_beats(y: np.ndarray, sr: int) -> np.ndarray:
         """Rileva i beat nell'audio."""
-        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
-        return librosa.frames_to_time(beat_frames, sr=sr)
+        try:
+            # Usa parametri più robusti per evitare errori
+            tempo, beat_frames = librosa.beat.beat_track(
+                y=y, 
+                sr=sr,
+                hop_length=512,
+                start_bpm=120.0,
+                units='frames'
+            )
+            return librosa.frames_to_time(beat_frames, sr=sr)
+        except Exception as e:
+            print(f"Warning: Beat detection failed: {e}. Returning empty beat array.")
+            return np.array([])
     
     # ------------------------------- FX passes ------------------------------ #
     def _color_pulse(
@@ -666,6 +945,130 @@ class VideoAudioFX:
                 shift = np.random.randint(-50, 50)
                 if ly + lh < h:
                     result[ly : ly + lh, :] = np.roll(result[ly : ly + lh, :], shift, axis=1)
+        return result
+    
+    @staticmethod
+    def _chromatic_aberration(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto aberrazione cromatica cyberpunk."""
+        if intensity < 0.3:
+            return img
+        result = img.copy()
+        shift_amount = int((intensity - 0.3) * 15)
+        result[:, :, 0] = np.roll(img[:, :, 0], -shift_amount, axis=1)
+        result[:, :, 2] = np.roll(img[:, :, 2], shift_amount, axis=1)
+        return result
+    
+    @staticmethod
+    def _electric_arcs(img: np.ndarray, intensity: float, color: Tuple[float, float, float]) -> np.ndarray:
+        """Effetto scariche elettriche."""
+        if intensity < 0.7:
+            return img
+        result = img.copy()
+        h, w = img.shape[:2]
+        num_arcs = int((intensity - 0.7) * 20)
+        for _ in range(num_arcs):
+            x1, y1 = np.random.randint(0, w), np.random.randint(0, h)
+            x2, y2 = np.random.randint(0, w), np.random.randint(0, h)
+            arc_color = tuple(int(c * 255) for c in color)
+            thickness = np.random.randint(1, 4)
+            cv2.line(result, (x1, y1), (x2, y2), arc_color, thickness)
+            if intensity > 0.85:
+                cv2.line(result, (x1, y1), (x2, y2), (255, 255, 255), 1)
+        result = cv2.addWeighted(img, 0.7, result, 0.3, 0)
+        return result
+    
+    @staticmethod
+    def _bubble_distortion(img: np.ndarray, bass_intensity: float) -> np.ndarray:
+        """Effetto bolla sui bassi."""
+        if bass_intensity < 0.4:
+            return img
+        h, w = img.shape[:2]
+        factor = (bass_intensity - 0.4) * 30
+        cx, cy = w // 2, h // 2
+        y_coords, x_coords = np.indices((h, w), dtype=np.float32)
+        dx = x_coords - cx
+        dy = y_coords - cy
+        distance = np.sqrt(dx**2 + dy**2)
+        max_distance = np.sqrt(cx**2 + cy**2)
+        normalized_distance = distance / max_distance
+        deformation = factor * np.sin(normalized_distance * np.pi) * (1 - normalized_distance)
+        angle = np.arctan2(dy, dx)
+        map_x = x_coords + deformation * np.cos(angle)
+        map_y = y_coords + deformation * np.sin(angle)
+        result = cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+        return result
+    
+    @staticmethod
+    def _zoom_pulse(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto zoom pulsante."""
+        if intensity < 0.3:
+            return img
+        h, w = img.shape[:2]
+        zoom_factor = 1.0 + (intensity - 0.3) * 0.5
+        new_w = int(w * zoom_factor)
+        new_h = int(h * zoom_factor)
+        zoomed = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+        start_x = (new_w - w) // 2
+        start_y = (new_h - h) // 2
+        result = zoomed[start_y:start_y+h, start_x:start_x+w]
+        return result
+    
+    @staticmethod
+    def _screen_shake(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto shake dello schermo."""
+        if intensity < 0.5:
+            return img
+        h, w = img.shape[:2]
+        shake_amount = int((intensity - 0.5) * 30)
+        
+        # Se shake_amount è 0, nessun shake
+        if shake_amount <= 0:
+            return img
+        
+        offset_x = np.random.randint(-shake_amount, shake_amount + 1)
+        offset_y = np.random.randint(-shake_amount, shake_amount + 1)
+        M = np.float32([[1, 0, offset_x], [0, 1, offset_y]])
+        result = cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REFLECT)
+        return result
+    
+    @staticmethod
+    def _rgb_split(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto split RGB estremo."""
+        if intensity < 0.6:
+            return img
+        result = img.copy()
+        split_amount = int((intensity - 0.6) * 25)
+        result[:, :, 0] = np.roll(img[:, :, 0], split_amount, axis=0)
+        result[:, :, 1] = img[:, :, 1]
+        result[:, :, 2] = np.roll(img[:, :, 2], -split_amount, axis=0)
+        return result
+    
+    @staticmethod
+    def _scan_lines(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto scan lines CRT."""
+        if intensity < 0.4:
+            return img
+        result = img.copy().astype(np.float32)
+        h = img.shape[0]
+        line_intensity = (intensity - 0.4) * 0.6
+        for y in range(0, h, 3):
+            result[y:y+1, :] = result[y:y+1, :] * (1.0 - line_intensity)
+        return np.clip(result, 0, 255).astype(np.uint8)
+    
+    @staticmethod
+    def _vhs_distortion(img: np.ndarray, intensity: float) -> np.ndarray:
+        """Effetto distorsione VHS."""
+        if intensity < 0.5:
+            return img
+        result = img.copy()
+        h = img.shape[0]
+        num_bands = int((intensity - 0.5) * 15)
+        for _ in range(num_bands):
+            y = np.random.randint(0, h - 10)
+            band_height = np.random.randint(2, 8)
+            shift = np.random.randint(-30, 30)
+            if y + band_height < h:
+                result[y:y+band_height, :] = np.roll(result[y:y+band_height, :], shift, axis=1)
         return result
     
     def create_video(self) -> None:
@@ -815,15 +1218,51 @@ class VideoAudioFX:
                 
                 # Applica effetti
                 frame = base_frames[i]
+                
+                # NUOVI EFFETTI ELETTRICI E DISTORSIVI
+                # Zoom pulsante sui bassi
+                frame = self._zoom_pulse(frame, bass[audio_idx] * 1.2)
+                
+                # Effetto bolla sui bassi
+                frame = self._bubble_distortion(frame, bass[audio_idx])
+                
+                # Screen shake su snare/mid (vibrazioni intense)
+                frame = self._screen_shake(frame, mid[audio_idx] * 1.3)
+                
+                # Effetti colore base
                 frame = self._color_pulse(frame, bass[audio_idx], mid[audio_idx], treble[audio_idx], beat_intensity)
                 
                 total_intensity = (bass[audio_idx] + mid[audio_idx] + treble[audio_idx]) / 3
                 color_index = int(current_time * 2) % len(self.dark_colors)
+                
+                # Strobe
                 frame = self._strobe(frame, total_intensity, color_index)
+                
+                # Distorsione base
                 frame = self._distort(frame, total_intensity)
                 
+                # EFFETTI CYBERPUNK
+                # Aberrazione cromatica
+                frame = self._chromatic_aberration(frame, treble[audio_idx] * 1.1)
+                
+                # RGB Split estremo su alti
+                frame = self._rgb_split(frame, treble[audio_idx] * 1.2)
+                
+                # Glitch base
                 glitch_intensity = bass[audio_idx] * 0.5 + treble[audio_idx] * 0.5
                 frame = self._glitch(frame, glitch_intensity)
+                
+                # Scariche elettriche sui beat
+                if beat_intensity > 0.5:
+                    current_color = self.dark_colors[color_index]
+                    frame = self._electric_arcs(frame, beat_intensity, current_color)
+                
+                # Scan lines CRT
+                frame = self._scan_lines(frame, mid[audio_idx] * 0.8)
+                
+                # VHS distortion casuale
+                if np.random.random() < treble[audio_idx] * 0.3:
+                    frame = self._vhs_distortion(frame, treble[audio_idx])
                 
                 # Applica logo
                 frame = self._overlay_logo(frame)
@@ -901,6 +1340,7 @@ def generate_video(
     *,
     colors: Optional[List[Tuple[float, float, float]]] = None,
     thresholds: Optional[Tuple[float, float, float]] = None,
+    effect_style: str = "standard",  # "standard" o "extreme"
     # Logo options
     logo: Optional[str] = None,
     logo_position: str = "top-right",
@@ -918,6 +1358,7 @@ def generate_video(
         progress_cb=progress_cb,
         colors=colors,
         thresholds=thresholds,
+        effect_style=effect_style,
         logo_file=logo,
         logo_position=logo_position,
         logo_scale=logo_scale,

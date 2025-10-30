@@ -99,6 +99,41 @@ ACID_HOUSE_CONFIG = {
     }
 }
 
+EXTREME_VIBRANT_CONFIG = {
+    'name': 'Extreme Vibrant',
+    'colors': [
+        (1.0, 0.0, 1.0),    # Magenta shock
+        (0.0, 1.0, 1.0),    # Cyan elettrico
+        (1.0, 0.2, 0.8),    # Rosa neon aggressivo
+        (0.2, 1.0, 0.0),    # Verde lime vibrante
+        (1.0, 0.0, 0.5),    # Rosso neon
+        (0.5, 0.0, 1.0),    # Viola intenso
+        (1.0, 1.0, 0.0),    # Giallo flash
+        (0.0, 0.8, 1.0),    # Azzurro elettrico
+    ],
+    'thresholds': {
+        'bass': 0.15,        # Molto sensibile sui bassi per effetto bolleggiante
+        'mid': 0.10,         # Super sensibile sullo snare
+        'high': 0.12         # Iper-reattivo sugli alti
+    },
+    'effects': {
+        'strobe_intensity': 1.0,        # Massimo strobe
+        'distortion_threshold': 0.2,    # Distorsioni aggressive
+        'noise_level': 0.25,            # Noise alto per texture
+        'flash_duration': 0.01,         # Flash rapidissimi
+        'zoom_intensity': 0.95,         # Zoom estremo
+        'vibration_amount': 0.9,        # Vibrazioni intense sullo snare
+        'bubble_effect': 0.85,          # Effetto bolleggiante sui bassi
+        'color_shift_speed': 0.98,      # Cambio colori rapidissimo
+        'saturation_boost': 1.5,        # Saturazione oltre il limite
+        'contrast_extreme': 1.8,        # Contrasto esagerato
+        'pulse_multiplier': 3.0,        # Pulsazioni triple
+        'shake_amount': 0.7,            # Screen shake forte
+        'chromatic_aberration': 0.6,    # Aberrazione cromatica cyberpunk
+        'glitch_probability': 0.15,     # 15% probabilità glitch per frame
+    }
+}
+
 # =============================================================================
 # CONFIGURAZIONI EFFETTI AVANZATI
 # =============================================================================
@@ -197,7 +232,7 @@ def get_preset_config(preset_name: str) -> dict:
     Ottieni configurazione preset per nome
     
     Args:
-        preset_name: Nome del preset ('dark_techno', 'cyberpunk', 'industrial', 'acid_house')
+        preset_name: Nome del preset ('dark_techno', 'cyberpunk', 'industrial', 'acid_house', 'extreme_vibrant')
         
     Returns:
         Dizionario con la configurazione
@@ -206,7 +241,8 @@ def get_preset_config(preset_name: str) -> dict:
         'dark_techno': DARK_TECHNO_CONFIG,
         'cyberpunk': CYBERPUNK_CONFIG,
         'industrial': INDUSTRIAL_CONFIG,
-        'acid_house': ACID_HOUSE_CONFIG
+        'acid_house': ACID_HOUSE_CONFIG,
+        'extreme_vibrant': EXTREME_VIBRANT_CONFIG
     }
     
     return presets.get(preset_name.lower(), DARK_TECHNO_CONFIG)
