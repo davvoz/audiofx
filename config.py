@@ -134,6 +134,40 @@ EXTREME_VIBRANT_CONFIG = {
     }
 }
 
+PSYCHEDELIC_REFRACTION_CONFIG = {
+    'name': 'Psychedelic Refraction',
+    'colors': [
+        (1.0, 0.0, 0.5),    # Rosa psichedelico
+        (0.0, 1.0, 0.8),    # Turchese brillante
+        (0.8, 0.0, 1.0),    # Viola elettrico
+        (1.0, 0.5, 0.0),    # Arancione acido
+        (0.2, 1.0, 0.3),    # Verde lime
+        (1.0, 0.8, 0.0),    # Giallo dorato
+        (0.0, 0.6, 1.0),    # Blu cristallo
+        (1.0, 0.0, 0.8),    # Magenta prismatico
+    ],
+    'thresholds': {
+        'bass': 0.18,        # Sensibile per attivare rifrazioni
+        'mid': 0.12,         # Rifrazioni medie su mid
+        'high': 0.10         # Rifrazioni sottili sugli alti
+    },
+    'effects': {
+        'strobe_intensity': 0.75,           # Strobe moderato
+        'distortion_threshold': 0.25,       # Distorsioni fluide
+        'noise_level': 0.08,                # Noise leggero
+        'flash_duration': 0.03,             # Flash morbidi
+        'refraction_intensity': 0.95,       # Intensità rifrazione massima
+        'refraction_waves': 0.85,           # Onde di rifrazione
+        'kaleidoscope_segments': 6,         # Segmenti caleidoscopio
+        'prismatic_split': 0.90,            # Split prismatico RGB
+        'liquid_flow': 0.88,                # Flusso liquido
+        'crystal_distortion': 0.92,         # Distorsione cristallina
+        'color_dispersion': 0.95,           # Dispersione cromatica
+        'wave_frequency': 0.85,             # Frequenza onde
+        'pixel_shift_chaos': 0.80,          # Caos shift pixel
+    }
+}
+
 # =============================================================================
 # CONFIGURAZIONI EFFETTI AVANZATI
 # =============================================================================
@@ -232,7 +266,7 @@ def get_preset_config(preset_name: str) -> dict:
     Ottieni configurazione preset per nome
     
     Args:
-        preset_name: Nome del preset ('dark_techno', 'cyberpunk', 'industrial', 'acid_house', 'extreme_vibrant')
+        preset_name: Nome del preset ('dark_techno', 'cyberpunk', 'industrial', 'acid_house', 'extreme_vibrant', 'psychedelic_refraction')
         
     Returns:
         Dizionario con la configurazione
@@ -242,7 +276,8 @@ def get_preset_config(preset_name: str) -> dict:
         'cyberpunk': CYBERPUNK_CONFIG,
         'industrial': INDUSTRIAL_CONFIG,
         'acid_house': ACID_HOUSE_CONFIG,
-        'extreme_vibrant': EXTREME_VIBRANT_CONFIG
+        'extreme_vibrant': EXTREME_VIBRANT_CONFIG,
+        'psychedelic_refraction': PSYCHEDELIC_REFRACTION_CONFIG
     }
     
     return presets.get(preset_name.lower(), DARK_TECHNO_CONFIG)

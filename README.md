@@ -188,6 +188,83 @@ Run it by double‑clicking in Explorer or from PowerShell:
 
 Advanced color/threshold presets live in `config.py`. The GUI maps user‑friendly names to config keys and passes colors/thresholds to the generator. You can add your own preset or use `create_custom_config(...)` to craft a palette and thresholds.
 
+### Available Presets
+
+#### 🌑 Dark Techno
+- Sobrio e potente con colori scuri
+- Magenta, cyan, arancione scuro, viola
+- Strobe pesante, distorsioni moderate
+- Perfetto per techno industriale
+
+#### 🌃 Cyberpunk
+- Neon vibranti e aberrazioni cromatiche
+- Magenta neon, cyan elettrico, rosa shock
+- Strobe estremo, effetti elettrici
+- Stile futuristico distopico
+
+#### 🏭 Industrial
+- Toni metallici e ruggine
+- Grigio, arancione, rosso scuro, verde militare
+- Noise alto, texture grezza
+- Atmosfera grezza e pesante
+
+#### 💊 Acid House
+- Colori acidi brillanti
+- Giallo, verde lime, magenta, cyan
+- Cambio colori rapidissimo
+- Energia psichedelica anni '90
+
+#### ⚡ Extreme Vibrant
+- Massima energia visiva
+- 8 colori shock ad alta saturazione
+- Tutti gli effetti al massimo
+- Zoom, shake, glitch, scariche elettriche
+- Per produzioni estreme
+
+#### 🔮 **Psychedelic Refraction** (NEW!)
+- **Effetto rifrazione intelligente tra pixels**
+- **Distorsioni psichedeliche fluide**
+- 8 colori prismatici (rosa, turchese, viola, arancione acido)
+- **Effetti unici:**
+  - 🌊 Rifrazione ondulata multi-direzionale
+  - 🌈 Dispersione cromatica prismatica (simula rifrazione della luce)
+  - 💎 Shift intelligente pixel (zone cristalline)
+  - 🔶 Kaleidoscope dinamico a 6 segmenti
+  - 🌀 Flusso liquido con turbolenza
+  - 🎭 Split prismatico RGB avanzato
+- **Audio-reactive:**
+  - Bassi → Flusso liquido e bolle
+  - Mid → Intensifica rifrazioni
+  - Alti → Split prismatico e dispersione
+  - Beat → Flash kaleidoscopico
+
+**Uso del preset Psychedelic Refraction:**
+
+```python
+from config import get_preset_config
+from video_generator import AudioVisualFX
+
+config = get_preset_config('psychedelic_refraction')
+
+fx = AudioVisualFX(
+    audio_file="track.mp3",
+    image_file="artwork.jpg",
+    output_file="psychedelic.mp4",
+    fps=30,
+    colors=config['colors'],
+    thresholds=(
+        config['thresholds']['bass'],
+        config['thresholds']['mid'],
+        config['thresholds']['high']
+    ),
+    effect_style="psychedelic"  # Attiva effetti di rifrazione!
+)
+
+fx.create_video()
+```
+
+Vedi `example_psychedelic.py` per un esempio completo e `test_psychedelic_preset.py` per dettagli tecnici.
+
 Note: The core generator (`video_generator.AudioVisualFX`) currently targets 720×720; change `target_resolution` in the constructor if you want another size programmatically.
 
 ## Troubleshooting

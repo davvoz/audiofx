@@ -74,7 +74,7 @@ class App(tk.Tk):
         self.preset_combo = ttk.Combobox(
             frame,
             textvariable=self.preset_var,
-            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House", "Extreme Vibrant"],
+            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House", "Extreme Vibrant", "Psychedelic Refraction"],
             state="readonly",
             width=30,
         )
@@ -167,7 +167,7 @@ class App(tk.Tk):
         self.sync_preset_combo = ttk.Combobox(
             frame,
             textvariable=self.sync_preset_var,
-            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House", "Extreme Vibrant"],
+            values=["Dark Techno", "Cyberpunk", "Industrial", "Acid House", "Extreme Vibrant", "Psychedelic Refraction"],
             state="readonly",
             width=30,
         )
@@ -393,6 +393,7 @@ class App(tk.Tk):
             "Industrial": "industrial",
             "Acid House": "acid_house",
             "Extreme Vibrant": "extreme_vibrant",
+            "Psychedelic Refraction": "psychedelic_refraction",
         }
         preset_key = name_to_key.get(self.preset_var.get(), "dark_techno")
         preset = get_preset_config(preset_key)
@@ -439,7 +440,12 @@ class App(tk.Tk):
                 pos = pos_map.get(self.logo_position.get(), "top-right")
                 
                 # Determina lo stile effetti
-                effect_style = "extreme" if preset_key == "extreme_vibrant" else "standard"
+                if preset_key == "extreme_vibrant":
+                    effect_style = "extreme"
+                elif preset_key == "psychedelic_refraction":
+                    effect_style = "psychedelic"
+                else:
+                    effect_style = "standard"
                 
                 generate_video(
                     audio,
@@ -491,6 +497,7 @@ class App(tk.Tk):
             "Industrial": "industrial",
             "Acid House": "acid_house",
             "Extreme Vibrant": "extreme_vibrant",
+            "Psychedelic Refraction": "psychedelic_refraction",
         }
         preset_key = name_to_key.get(self.sync_preset_var.get(), "dark_techno")
         preset = get_preset_config(preset_key)

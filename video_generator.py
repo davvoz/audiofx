@@ -81,6 +81,9 @@ class AudioVisualFX:
         
         # effect style
         self.effect_style = effect_style
+        
+        # frame counter for time-based effects
+        self._frame_counter = 0
 
         # logo configuration
         self.logo_file = logo_file
@@ -426,6 +429,200 @@ class AudioVisualFX:
                 result[y:y+band_height, :] = np.roll(result[y:y+band_height, :], shift, axis=1)
         
         return result
+    
+    @staticmethod
+    def _psychedelic_refraction(img: np.ndarray, intensity: float, frame_time: float) -> np.ndarray:
+        """
+        Effetto rifrazione psichedelica intelligente - simula rifrazione prismatica
+        con distorsioni fluide e dispersione cromatica dei pixel.
+        """
+        if intensity < 0.2:
+            return img
+        
+        h, w = img.shape[:2]
+        result = img.copy()
+        
+        # Parametri di rifrazione basati sull'intensità
+        refraction_strength = (intensity - 0.2) * 40
+        wave_speed = frame_time * 2.0  # Animazione fluida
+        
+        # Crea griglia di coordinate
+        y_coords, x_coords = np.indices((h, w), dtype=np.float32)
+        
+        # ===== RIFRAZIONE ONDULATA MULTI-DIREZIONALE =====
+        # Onde sinusoidali multiple per effetto prismatico
+        wave1_x = refraction_strength * np.sin((y_coords / 30.0) + wave_speed) * np.cos((x_coords / 40.0) + wave_speed * 0.7)
+        wave1_y = refraction_strength * np.cos((x_coords / 35.0) + wave_speed) * np.sin((y_coords / 45.0) + wave_speed * 0.5)
+        
+        wave2_x = refraction_strength * 0.6 * np.sin((y_coords / 20.0) - wave_speed * 0.8) * np.cos((x_coords / 25.0))
+        wave2_y = refraction_strength * 0.6 * np.cos((x_coords / 22.0) - wave_speed * 0.6) * np.sin((y_coords / 28.0))
+        
+        # Combina onde per rifrazione complessa
+        map_x = x_coords + wave1_x + wave2_x
+        map_y = y_coords + wave1_y + wave2_y
+        
+        # ===== DISPERSIONE CROMATICA (PRISMATICA) =====
+        # Separa i canali RGB con offset diversi per simulare rifrazione della luce
+        dispersion_amount = int(refraction_strength * 0.3)
+        
+        # Canale Rosso - rifrazione verso l'esterno
+        map_x_r = np.clip(map_x + dispersion_amount, 0, w - 1)
+        map_y_r = np.clip(map_y, 0, h - 1)
+        r_channel = cv2.remap(img[:, :, 0], map_x_r, map_y_r, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+        
+        # Canale Verde - rifrazione minima (centro)
+        map_x_g = np.clip(map_x, 0, w - 1)
+        map_y_g = np.clip(map_y, 0, h - 1)
+        g_channel = cv2.remap(img[:, :, 1], map_x_g, map_y_g, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+        
+        # Canale Blu - rifrazione verso l'interno
+        map_x_b = np.clip(map_x - dispersion_amount, 0, w - 1)
+        map_y_b = np.clip(map_y, 0, h - 1)
+        b_channel = cv2.remap(img[:, :, 2], map_x_b, map_y_b, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+        
+        # Ricomponi con dispersione cromatica
+        result = np.stack([r_channel, g_channel, b_channel], axis=2)
+        
+        # ===== EFFETTO CRISTALLO (PIXEL SHIFT INTELLIGENTE) =====
+        if intensity > 0.5:
+            # Crea zone di rifrazione locale (simula facce di cristallo)
+            crystal_intensity = (intensity - 0.5) * 2.0
+            num_crystals = int(crystal_intensity * 8)
+            
+            for _ in range(num_crystals):
+                # Centro casuale della "faccia cristallina"
+                cx = np.random.randint(w // 4, 3 * w // 4)
+                cy = np.random.randint(h // 4, 3 * h // 4)
+                radius = np.random.randint(30, 80)
+                
+                # Calcola distanza da centro cristallo
+                dx = x_coords - cx
+                dy = y_coords - cy
+                distance = np.sqrt(dx**2 + dy**2)
+                
+                # Maschera circolare con fade
+                mask = np.exp(-(distance / radius)**2)
+                mask = mask[:, :, np.newaxis]  # Aggiungi dimensione per broadcasting
+                
+                # Angolo di rifrazione basato sulla posizione
+                angle = np.arctan2(dy, dx)
+                shift_strength = crystal_intensity * 15
+                
+                # Shift radiale (allontanamento dal centro)
+                shift_x = (shift_strength * np.cos(angle) * mask[:, :, 0]).astype(np.float32)
+                shift_y = (shift_strength * np.sin(angle) * mask[:, :, 0]).astype(np.float32)
+                
+                # Applica shift locale
+                local_map_x = np.clip(x_coords + shift_x, 0, w - 1)
+                local_map_y = np.clip(y_coords + shift_y, 0, h - 1)
+                
+                refracted_region = cv2.remap(result, local_map_x, local_map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+                
+                # Blending con maschera
+                result = (result * (1 - mask) + refracted_region * mask).astype(np.uint8)
+        
+        # ===== KALEIDOSCOPE EFFECT (ALTA INTENSITÀ) =====
+        if intensity > 0.7:
+            kaleidoscope_strength = (intensity - 0.7) * 3.3
+            segments = 6  # Segmenti del caleidoscopio
+            
+            # Crea coordinate polari dal centro
+            cx, cy = w // 2, h // 2
+            dx = x_coords - cx
+            dy = y_coords - cy
+            radius = np.sqrt(dx**2 + dy**2)
+            theta = np.arctan2(dy, dx)
+            
+            # Mirror pattern per segmenti
+            theta_segment = (theta % (2 * np.pi / segments)) * segments
+            
+            # Coordinate cartesiane riflesse
+            new_x = cx + radius * np.cos(theta_segment)
+            new_y = cy + radius * np.sin(theta_segment)
+            
+            # Clamp alle dimensioni
+            new_x = np.clip(new_x, 0, w - 1).astype(np.float32)
+            new_y = np.clip(new_y, 0, h - 1).astype(np.float32)
+            
+            kaleidoscope_img = cv2.remap(result, new_x, new_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+            
+            # Blending con immagine originale
+            result = cv2.addWeighted(result, 1 - kaleidoscope_strength * 0.4, kaleidoscope_img, kaleidoscope_strength * 0.4, 0)
+        
+        return result
+    
+    @staticmethod
+    def _liquid_flow(img: np.ndarray, intensity: float, frame_time: float) -> np.ndarray:
+        """
+        Effetto flusso liquido - distorsione fluida che simula rifrazione attraverso liquido.
+        """
+        if intensity < 0.3:
+            return img
+        
+        h, w = img.shape[:2]
+        flow_strength = (intensity - 0.3) * 25
+        
+        # Crea griglia coordinate
+        y_coords, x_coords = np.indices((h, w), dtype=np.float32)
+        
+        # Pattern di flusso fluido con movimento
+        flow_time = frame_time * 1.5
+        
+        # Onde multiple per simulare turbolenza
+        flow_x = flow_strength * (
+            np.sin((y_coords / 25.0) + flow_time) * 0.5 +
+            np.cos((x_coords / 30.0) + flow_time * 0.7) * 0.3 +
+            np.sin((y_coords / 15.0) - flow_time * 0.5) * 0.2
+        )
+        
+        flow_y = flow_strength * (
+            np.cos((x_coords / 28.0) + flow_time) * 0.5 +
+            np.sin((y_coords / 22.0) + flow_time * 0.6) * 0.3 +
+            np.cos((x_coords / 18.0) - flow_time * 0.4) * 0.2
+        )
+        
+        # Applica distorsione
+        map_x = np.clip(x_coords + flow_x, 0, w - 1).astype(np.float32)
+        map_y = np.clip(y_coords + flow_y, 0, h - 1).astype(np.float32)
+        
+        result = cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+        
+        return result
+    
+    @staticmethod
+    def _prism_split(img: np.ndarray, intensity: float, frame_time: float) -> np.ndarray:
+        """
+        Effetto split prismatico avanzato - separa RGB con pattern complesso.
+        """
+        if intensity < 0.4:
+            return img
+        
+        result = img.copy()
+        h, w = img.shape[:2]
+        
+        split_amount = int((intensity - 0.4) * 30)
+        
+        # Pattern sinusoidale per split non uniforme
+        y_coords = np.arange(h)
+        wave_offset = (np.sin(y_coords / 20.0 + frame_time * 2) * split_amount / 2).astype(int)
+        
+        # Split RGB con pattern ondulato
+        for y in range(h):
+            offset = wave_offset[y]
+            result[y, :, 0] = np.roll(img[y, :, 0], -split_amount - offset)  # Rosso
+            result[y, :, 2] = np.roll(img[y, :, 2], split_amount + offset)   # Blu
+        
+        # Aggiungi split verticale per intensità alte
+        if intensity > 0.6:
+            x_coords = np.arange(w)
+            wave_offset_v = (np.cos(x_coords / 25.0 + frame_time * 1.5) * split_amount / 3).astype(int)
+            
+            for x in range(w):
+                offset_v = wave_offset_v[x]
+                result[:, x, 0] = np.roll(result[:, x, 0], offset_v)
+                result[:, x, 2] = np.roll(result[:, x, 2], -offset_v)
+        
+        return result
 
     # ------------------------------ Logo overlay --------------------------- #
     def _prepare_logo(self, frame_w: int, frame_h: int) -> None:
@@ -524,7 +721,50 @@ class AudioVisualFX:
             total_intensity = (bass[i] + mid[i] + treble[i]) / 3
             color_index = int(current_time * 2) % len(self.dark_colors)
             
-            if self.effect_style == "extreme":
+            if self.effect_style == "psychedelic":
+                # ========== PSYCHEDELIC REFRACTION: EFFETTI DI RIFRAZIONE INTELLIGENTE ==========
+                
+                # RIFRAZIONE PRINCIPALE - Effetto prismatico fluido
+                refraction_intensity = bass[i] * 0.6 + mid[i] * 0.3 + treble[i] * 0.3
+                frame = self._psychedelic_refraction(frame, refraction_intensity, current_time)
+                
+                # FLUSSO LIQUIDO - Distorsione fluida sui bassi
+                frame = self._liquid_flow(frame, bass[i] * 1.1, current_time)
+                
+                # SPLIT PRISMATICO - Dispersione RGB complessa
+                frame = self._prism_split(frame, treble[i] * 1.15, current_time)
+                
+                # Effetti colore base potenziati
+                frame = self._color_pulse(frame, bass[i] * 1.2, mid[i] * 1.1, treble[i] * 1.1, beat_intensity)
+                
+                # Zoom pulsante leggero sui bassi
+                if bass[i] > 0.4:
+                    frame = self._zoom_pulse(frame, bass[i] * 0.8)
+                
+                # Effetto bolla sui bassi forti
+                if bass[i] > 0.5:
+                    frame = self._bubble_distortion(frame, bass[i] * 0.9)
+                
+                # Strobe moderato
+                frame = self._strobe(frame, total_intensity * 0.85, color_index)
+                
+                # Distorsione fluida
+                frame = self._distort(frame, total_intensity * 0.7)
+                
+                # Aberrazione cromatica psichedelica
+                frame = self._chromatic_aberration(frame, treble[i] * 0.9)
+                
+                # Kaleidoscope sui beat intensi
+                if beat_intensity > 0.8:
+                    # Effetto già integrato in _psychedelic_refraction con intensità alta
+                    pass
+                
+                # Glitch leggero per texture
+                if np.random.random() < 0.1:
+                    glitch_intensity = (bass[i] + treble[i]) * 0.3
+                    frame = self._glitch(frame, glitch_intensity)
+            
+            elif self.effect_style == "extreme":
                 # ========== EXTREME VIBRANT: EFFETTI ELETTRICI E DISTORSIVI ==========
                 # Zoom pulsante sui bassi
                 frame = self._zoom_pulse(frame, bass[i] * 1.2)
