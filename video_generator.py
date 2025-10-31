@@ -51,6 +51,7 @@ class AudioVisualFX:
         logo_scale: float = 0.15,
         logo_opacity: float = 1.0,
         logo_margin: int = 12,
+        config: Optional[dict] = None,  # Full preset configuration
     ) -> None:
         self.audio_file = audio_file
         self.image_file = image_file
@@ -58,6 +59,11 @@ class AudioVisualFX:
         self.fps = fps
         self.duration = duration
         self.progress_cb = progress_cb
+        
+        # Store full config and read transition_duration if available
+        self._config = config or {}
+        effects_config = self._config.get('effects', {})
+        self._transition_duration_from_config = effects_config.get('transition_duration', 3.0)  # Default 3.0s ULTRA SMOOTH
 
         # thresholds: (bass, mid, high)
         if thresholds is None:
@@ -84,6 +90,14 @@ class AudioVisualFX:
         
         # frame counter for time-based effects
         self._frame_counter = 0
+        
+        # Transition system for smooth section changes
+        self._previous_section = None
+        self._section_start_time = 0.0
+        # Use config value if provided, otherwise default to 3.0 (ULTRA SMOOTH)
+        self._transition_duration = self._transition_duration_from_config
+        self._previous_color_index = 0  # Track color for smooth interpolation
+        self._color_transition_progress = 0.0
 
         # logo configuration
         self.logo_file = logo_file
@@ -168,7 +182,8 @@ class AudioVisualFX:
         sr: int,
         bass_energy: np.ndarray,
         mid_energy: np.ndarray,
-        treble_energy: np.ndarray
+        treble_energy: np.ndarray,
+        transition_duration: float = 3.0
     ) -> List[dict]:
         """
         Analizza la traccia audio per riconoscere le diverse sezioni musicali.
@@ -272,10 +287,12 @@ class AudioVisualFX:
             current_section['duration'] = current_section['end_time'] - current_section['start_time']
             sections.append(current_section)
         
-        # Merge sezioni troppo corte (< 2 secondi)
+        # Merge sezioni troppo corte per garantire transizioni complete
+        # La soglia deve essere > transition_duration per evitare transizioni incomplete
+        min_section_duration = transition_duration + 0.5  # +0.5s buffer di sicurezza
         merged_sections = []
         for sec in sections:
-            if sec['duration'] >= 2.0 or not merged_sections:
+            if sec['duration'] >= min_section_duration or not merged_sections:
                 merged_sections.append(sec)
             else:
                 # Merge con precedente
@@ -284,7 +301,7 @@ class AudioVisualFX:
                 merged_sections[-1]['duration'] = merged_sections[-1]['end_time'] - merged_sections[-1]['start_time']
         
         # Log sezioni rilevate
-        print(f"\n📊 Sezioni rilevate: {len(merged_sections)}")
+        print(f"\n📊 Sezioni rilevate: {len(merged_sections)} (min_duration={min_section_duration:.1f}s)")
         for i, sec in enumerate(merged_sections, 1):
             emoji = {
                 'intro': '🎵', 'buildup': '📈', 'drop': '💥',
@@ -325,10 +342,13 @@ class AudioVisualFX:
             result = cv2.addWeighted(result, 0.9, noise, 0.1, 0)
         return result
 
-    def _strobe(self, img: np.ndarray, intensity: float, color_index: int) -> np.ndarray:
+    def _strobe(self, img: np.ndarray, intensity: float, color_index: int, transition_factor: float = 1.0) -> np.ndarray:
+        """Strobe effect con transizione smooth dei colori."""
         if intensity < 0.8:
             return img
-        color = self.dark_colors[color_index % len(self.dark_colors)]
+        
+        # Usa colore interpolato smooth
+        color = self._get_smooth_color(color_index, transition_factor)
         overlay = np.full(img.shape, color, dtype=np.float32) * 255
         strobe_factor = (intensity - 0.8) * 5
         result = cv2.addWeighted(
@@ -724,6 +744,86 @@ class AudioVisualFX:
         
         return result
     
+    def _interpolate_color(
+        self, 
+        color1: Tuple[float, float, float], 
+        color2: Tuple[float, float, float], 
+        factor: float
+    ) -> Tuple[float, float, float]:
+        """
+        Interpola smooth tra due colori RGB.
+        
+        Args:
+            color1: Colore iniziale (R, G, B) in range 0.0-1.0
+            color2: Colore finale (R, G, B) in range 0.0-1.0
+            factor: Fattore di interpolazione 0.0-1.0
+        
+        Returns:
+            Colore interpolato (R, G, B)
+        """
+        r = color1[0] * (1 - factor) + color2[0] * factor
+        g = color1[1] * (1 - factor) + color2[1] * factor
+        b = color1[2] * (1 - factor) + color2[2] * factor
+        return (r, g, b)
+    
+    def _get_smooth_color(self, target_color_index: int, transition_factor: float) -> Tuple[float, float, float]:
+        """
+        Ottiene un colore con transizione smooth dal colore precedente.
+        
+        Args:
+            target_color_index: Indice del colore target nella palette
+            transition_factor: Fattore di transizione 0.0-1.0
+        
+        Returns:
+            Colore interpolato smooth
+        """
+        # Se il colore è cambiato, interpola dal precedente
+        if target_color_index != self._previous_color_index:
+            # Interpola tra colore precedente e nuovo
+            prev_color = self.dark_colors[self._previous_color_index % len(self.dark_colors)]
+            new_color = self.dark_colors[target_color_index % len(self.dark_colors)]
+            
+            # Usa transition_factor per interpolazione smooth
+            interpolated = self._interpolate_color(prev_color, new_color, transition_factor)
+            
+            # Aggiorna colore precedente quando transizione è quasi completa
+            if transition_factor > 0.9:
+                self._previous_color_index = target_color_index
+            
+            return interpolated
+        else:
+            # Nessun cambio, ritorna colore diretto
+            return self.dark_colors[target_color_index % len(self.dark_colors)]
+    
+    def _get_transition_factor(self, current_time: float, section_type: str) -> float:
+        """
+        Calcola il fattore di transizione smooth (0.0 a 1.0) tra sezioni.
+        Ritorna 1.0 se siamo completamente nella nuova sezione,
+        valori più bassi se siamo ancora in transizione dalla precedente.
+        Usa curva SMOOTHERSTEP per fluidità perfetta e uniforme.
+        """
+        # Se la sezione è cambiata, aggiorna il tracking
+        if self._previous_section != section_type:
+            self._previous_section = section_type
+            self._section_start_time = current_time
+        
+        # Calcola quanto tempo è passato dall'inizio della nuova sezione
+        time_in_section = current_time - self._section_start_time
+        
+        # Leggi durata transizione dalla config (default 3.0s per extra smoothness)
+        transition_duration = self._transition_duration_from_config if hasattr(self, '_transition_duration_from_config') else self._transition_duration
+        
+        # Smooth transition usando una curva ease-in-out
+        if time_in_section >= transition_duration:
+            return 1.0
+        
+        # SMOOTHERSTEP (Ken Perlin) - PERFETTAMENTE SMOOTH in tutto il range!
+        # Formula: 6x^5 - 15x^4 + 10x^3
+        # Questa è LA curva standard per interpolazioni smooth in computer graphics
+        # Derivata prima e seconda sono 0 agli estremi = massima fluidità
+        progress = time_in_section / transition_duration
+        return progress * progress * progress * (progress * (progress * 6 - 15) + 10)
+    
     def _apply_section_effects(
         self,
         frame: np.ndarray,
@@ -737,144 +837,211 @@ class AudioVisualFX:
     ) -> np.ndarray:
         """
         Applica effetti specifici basati sul tipo di sezione musicale.
+        Include i nuovi effetti (gradient, B&W, negative, triangular, geometric).
+        Con transizioni smooth tra sezioni.
         """
+        # Ottieni fattore di transizione smooth
+        transition = self._get_transition_factor(current_time, section_type)
         
         if section_type == 'intro':
             # ===== INTRO: Effetti minimalisti e graduali =====
+            # NUOVO: Gradient blend radiale per focus centrale
+            frame = self._gradient_blend(frame, 0.4 * transition, 'radial')
+            
+            # NUOVO: Black & White parziale per atmosfera cinematografica
+            frame = self._black_and_white(frame, 0.6 * transition)
+            
+            # NUOVO: Geometric distortion sottile (pincushion)
+            frame = self._geometric_distortion(frame, 0.3 * transition, 'pincushion')
+            
             # Color pulse soft
-            frame = self._color_pulse(frame, bass * 0.6, mid * 0.5, treble * 0.5, beat_intensity * 0.3)
+            frame = self._color_pulse(frame, bass * 0.6 * transition, mid * 0.5 * transition, treble * 0.5 * transition, beat_intensity * 0.3)
             
             # Zoom molto leggero
             if bass > 0.3:
-                frame = self._zoom_pulse(frame, bass * 0.4)
+                frame = self._zoom_pulse(frame, bass * 0.4 * transition)
             
             # Liquid flow dolce
-            frame = self._liquid_flow(frame, bass * 0.5, current_time)
+            frame = self._liquid_flow(frame, bass * 0.5 * transition, current_time)
             
-            # Strobe minimo
+            # Strobe minimo con colori smooth
             total_intensity = (bass + mid + treble) / 3
             if total_intensity > 0.5:
-                frame = self._strobe(frame, total_intensity * 0.5, color_index)
+                frame = self._strobe(frame, total_intensity * 0.5 * transition, color_index, transition)
         
         elif section_type == 'buildup':
             # ===== BUILDUP: Crescita tensione, effetti progressivi =====
             # Intensità crescente nel tempo (simula buildup)
-            buildup_factor = 1.0 + (bass + mid) * 0.5
+            buildup_factor = 1.0 + (bass + mid) * 0.5 * transition
+            
+            # NUOVO: Gradient diagonale per dinamica
+            frame = self._gradient_blend(frame, mid * 0.6 * transition, 'diagonal')
+            
+            # NUOVO: Triangular distortion crescente sui mid
+            if mid > 0.4:
+                frame = self._triangular_distortion(frame, mid * 1.3 * transition, current_time)
+            
+            # NUOVO: Geometric pinch per tensione
+            frame = self._geometric_distortion(frame, bass * 0.7 * transition, 'pinch')
             
             # Color pulse intenso
-            frame = self._color_pulse(frame, bass * 1.2, mid * 1.1, treble, beat_intensity * 0.7)
+            frame = self._color_pulse(frame, bass * 1.2 * transition, mid * 1.1 * transition, treble * transition, beat_intensity * 0.7)
             
             # Zoom crescente
             frame = self._zoom_pulse(frame, bass * buildup_factor * 0.9)
             
             # Distorsione crescente
             total_intensity = (bass * 1.3 + mid * 1.2 + treble) / 3
-            frame = self._distort(frame, total_intensity * 0.8)
+            frame = self._distort(frame, total_intensity * 0.8 * transition)
             
             # Chromatic aberration
-            frame = self._chromatic_aberration(frame, treble * 0.9)
+            frame = self._chromatic_aberration(frame, treble * 0.9 * transition)
             
             # Screen shake crescente
             frame = self._screen_shake(frame, mid * buildup_factor * 0.7)
             
-            # Strobe crescente
-            frame = self._strobe(frame, total_intensity * 0.85, color_index)
+            # Strobe crescente con colori smooth
+            frame = self._strobe(frame, total_intensity * 0.85 * transition, color_index, transition)
         
         elif section_type == 'drop':
             # ===== DROP: Massima energia, tutti gli effetti al top =====
-            # Color pulse estremo
+            # NUOVO: Negative flash sui beat forti
+            if beat_intensity > 0.75:
+                frame = self._negative(frame, beat_intensity * 0.6 * transition)
+            
+            # NUOVO: Geometric swirl per caos
+            total_intensity = (bass * 1.5 + mid * 1.3 + treble * 1.2) / 3
+            frame = self._geometric_distortion(frame, total_intensity * 0.85 * transition, 'swirl')
+            
+            # NUOVO: Gradient horizontal per dinamica
+            frame = self._gradient_blend(frame, bass * 0.5 * transition, 'horizontal')
+            
+            # NUOVO: Triangular distortion massima
+            if mid > 0.5:
+                frame = self._triangular_distortion(frame, mid * 1.2 * transition, current_time)
+            
+            # Color pulse estremo (sempre pieno per energia drop)
             frame = self._color_pulse(frame, bass * 1.4, mid * 1.3, treble * 1.2, beat_intensity)
             
-            # Zoom esplosivo
-            frame = self._zoom_pulse(frame, bass * 1.3)
+            # Zoom esplosivo (graduale)
+            frame = self._zoom_pulse(frame, bass * 1.3 * (0.3 + 0.7 * transition))
             
             # Bubble distortion sui bassi forti
             if bass > 0.5:
-                frame = self._bubble_distortion(frame, bass * 1.2)
+                frame = self._bubble_distortion(frame, bass * 1.2 * transition)
             
             # Screen shake intenso
-            frame = self._screen_shake(frame, (mid + beat_intensity) * 0.8)
+            frame = self._screen_shake(frame, (mid + beat_intensity) * 0.8 * transition)
             
             # Distorsione massima
-            total_intensity = (bass * 1.5 + mid * 1.3 + treble * 1.2) / 3
-            frame = self._distort(frame, total_intensity)
+            frame = self._distort(frame, total_intensity * (0.5 + 0.5 * transition))
             
             # Chromatic aberration forte
-            frame = self._chromatic_aberration(frame, treble * 1.2)
+            frame = self._chromatic_aberration(frame, treble * 1.2 * transition)
             
             # RGB split
-            frame = self._rgb_split(frame, treble * 1.1)
+            frame = self._rgb_split(frame, treble * 1.1 * transition)
             
-            # Strobe massimo
-            frame = self._strobe(frame, total_intensity, color_index)
+            # Strobe massimo con colori smooth
+            frame = self._strobe(frame, total_intensity * (0.6 + 0.4 * transition), color_index, transition)
             
             # Glitch sui beat
             if beat_intensity > 0.7:
-                frame = self._glitch(frame, beat_intensity * 0.8)
+                frame = self._glitch(frame, beat_intensity * 0.8 * transition)
             
-            # Scariche elettriche
+            # Scariche elettriche con colori smooth
             if beat_intensity > 0.6:
-                current_color = self.dark_colors[color_index]
-                frame = self._electric_arcs(frame, beat_intensity, current_color)
+                current_color = self._get_smooth_color(color_index, transition)
+                frame = self._electric_arcs(frame, beat_intensity * transition, current_color)
         
         elif section_type == 'breakdown':
             # ===== BREAKDOWN: Effetti melodici e fluidi =====
+            # NUOVO: Black & White forte per atmosfera melodica
+            frame = self._black_and_white(frame, 0.7 * transition)
+            
+            # NUOVO: Gradient vertical per profondità
+            frame = self._gradient_blend(frame, 0.5 * transition, 'vertical')
+            
+            # NUOVO: Geometric barrel per espansione
+            frame = self._geometric_distortion(frame, 0.5 * transition, 'barrel')
+            
             # Color pulse melodico
-            frame = self._color_pulse(frame, bass * 0.7, mid * 0.9, treble * 1.1, beat_intensity * 0.5)
+            frame = self._color_pulse(frame, bass * 0.7 * transition, mid * 0.9 * transition, treble * 1.1 * transition, beat_intensity * 0.5)
             
             # Liquid flow prominente
-            frame = self._liquid_flow(frame, (bass + mid) * 0.7, current_time)
+            frame = self._liquid_flow(frame, (bass + mid) * 0.7 * transition, current_time)
             
             # Prism split
-            frame = self._prism_split(frame, treble * 0.9, current_time)
+            frame = self._prism_split(frame, treble * 0.9 * transition, current_time)
             
             # Distorsione leggera
             total_intensity = (bass * 0.7 + mid * 0.8 + treble) / 3
-            frame = self._distort(frame, total_intensity * 0.5)
+            frame = self._distort(frame, total_intensity * 0.5 * transition)
             
             # Chromatic aberration soft
-            frame = self._chromatic_aberration(frame, treble * 0.6)
+            frame = self._chromatic_aberration(frame, treble * 0.6 * transition)
             
             # Scan lines
-            frame = self._scan_lines(frame, mid * 0.6)
+            frame = self._scan_lines(frame, mid * 0.6 * transition)
         
         elif section_type == 'outro':
             # ===== OUTRO: Effetti che decadono, atmosferici =====
+            # NUOVO: Black & White progressivo (fade to B&W)
+            # Calcola il progresso dell'outro (da 0 a 1)
+            # Assumiamo che current_time aumenta, quindi usiamo energia decrescente come proxy
+            total_energy = (bass + mid + treble) / 3
+            bw_intensity = (1.0 - total_energy) * transition  # Più energia bassa, più B&W
+            frame = self._black_and_white(frame, min(bw_intensity, 0.9 * transition))
+            
+            # NUOVO: Gradient radiale per fade concentrico
+            frame = self._gradient_blend(frame, 0.7 * transition, 'radial')
+            
+            # NUOVO: Geometric pincushion per chiusura
+            frame = self._geometric_distortion(frame, 0.4 * transition, 'pincushion')
+            
             # Color pulse decrescente
-            frame = self._color_pulse(frame, bass * 0.5, mid * 0.4, treble * 0.6, beat_intensity * 0.2)
+            frame = self._color_pulse(frame, bass * 0.5 * transition, mid * 0.4 * transition, treble * 0.6 * transition, beat_intensity * 0.2)
             
             # Liquid flow lento
-            frame = self._liquid_flow(frame, bass * 0.4, current_time * 0.5)
+            frame = self._liquid_flow(frame, bass * 0.4 * transition, current_time * 0.5)
             
             # Zoom minimo
             if bass > 0.3:
-                frame = self._zoom_pulse(frame, bass * 0.3)
+                frame = self._zoom_pulse(frame, bass * 0.3 * transition)
             
             # Distorsione minima
             total_intensity = (bass + mid + treble) / 3
-            frame = self._distort(frame, total_intensity * 0.3)
+            frame = self._distort(frame, total_intensity * 0.3 * transition)
             
             # VHS distortion occasionale (effetto "fine cassetta")
             if np.random.random() < 0.3:
-                frame = self._vhs_distortion(frame, treble * 0.5)
+                frame = self._vhs_distortion(frame, treble * 0.5 * transition)
         
         else:  # 'steady'
             # ===== STEADY: Effetti bilanciati e stabili =====
+            # NUOVO: Triangular distortion sui mid (synth/lead)
+            if mid > 0.4:
+                frame = self._triangular_distortion(frame, mid * 0.8 * transition, current_time)
+            
+            # NUOVO: Geometric adaptive (cambia occasionalmente)
+            if bass > 0.5:
+                frame = self._geometric_distortion(frame, bass * 0.6 * transition, 'pinch')
+            
             # Color pulse normale
-            frame = self._color_pulse(frame, bass, mid, treble, beat_intensity * 0.6)
+            frame = self._color_pulse(frame, bass * transition, mid * transition, treble * transition, beat_intensity * 0.6)
             
             # Zoom moderato
-            frame = self._zoom_pulse(frame, bass * 0.7)
+            frame = self._zoom_pulse(frame, bass * 0.7 * transition)
             
             # Distorsione media
             total_intensity = (bass + mid + treble) / 3
-            frame = self._distort(frame, total_intensity * 0.6)
+            frame = self._distort(frame, total_intensity * 0.6 * transition)
             
             # Chromatic aberration
-            frame = self._chromatic_aberration(frame, treble * 0.7)
+            frame = self._chromatic_aberration(frame, treble * 0.7 * transition)
             
-            # Strobe medio
-            frame = self._strobe(frame, total_intensity * 0.7, color_index)
+            # Strobe medio con colori smooth
+            frame = self._strobe(frame, total_intensity * 0.7 * transition, color_index, transition)
             
             # Glitch occasionale
             if np.random.random() < 0.1:
@@ -914,6 +1081,203 @@ class AudioVisualFX:
                 offset_v = wave_offset_v[x]
                 result[:, x, 0] = np.roll(result[:, x, 0], offset_v)
                 result[:, x, 2] = np.roll(result[:, x, 2], -offset_v)
+        
+        return result
+    
+    @staticmethod
+    def _gradient_blend(img: np.ndarray, intensity: float, direction: str = "horizontal") -> np.ndarray:
+        """
+        Effetto passaggi sfumati - applica gradienti di colore con transizioni smooth.
+        
+        Args:
+            img: Immagine input
+            intensity: Intensità dell'effetto (0-1)
+            direction: Direzione del gradiente ("horizontal", "vertical", "radial", "diagonal")
+        """
+        if intensity < 0.2:
+            return img
+        
+        h, w = img.shape[:2]
+        result = img.copy().astype(np.float32)
+        
+        # Crea maschera di gradiente
+        if direction == "horizontal":
+            gradient = np.linspace(0, 1, w)
+            gradient = np.tile(gradient, (h, 1))
+        elif direction == "vertical":
+            gradient = np.linspace(0, 1, h)
+            gradient = np.tile(gradient[:, np.newaxis], (1, w))
+        elif direction == "radial":
+            cx, cy = w // 2, h // 2
+            y_coords, x_coords = np.indices((h, w))
+            dx = x_coords - cx
+            dy = y_coords - cy
+            distance = np.sqrt(dx**2 + dy**2)
+            max_dist = np.sqrt(cx**2 + cy**2)
+            gradient = distance / max_dist
+        else:  # diagonal
+            y_coords, x_coords = np.indices((h, w))
+            gradient = (x_coords + y_coords) / (w + h)
+        
+        # Applica sfumatura con intensità
+        gradient = gradient[:, :, np.newaxis]  # Aggiungi dimensione per broadcasting
+        blend_factor = (intensity - 0.2) * 1.2
+        
+        # Inverti colori seguendo il gradiente
+        inverted = 255 - result
+        result = result * (1 - gradient * blend_factor) + inverted * (gradient * blend_factor)
+        
+        return np.clip(result, 0, 255).astype(np.uint8)
+    
+    @staticmethod
+    def _black_and_white(img: np.ndarray, intensity: float) -> np.ndarray:
+        """
+        Effetto bianco e nero con controllo di intensità.
+        
+        Args:
+            img: Immagine input RGB
+            intensity: Intensità dell'effetto (0-1). 0 = colore originale, 1 = completamente B&W
+        """
+        if intensity < 0.1:
+            return img
+        
+        # Converti a scala di grigi usando formula luminance standard
+        # Y = 0.299*R + 0.587*G + 0.114*B
+        gray = np.dot(img[..., :3], [0.299, 0.587, 0.114])
+        
+        # Converti gray da 1 canale a 3 canali RGB
+        gray_rgb = np.stack([gray, gray, gray], axis=2).astype(np.uint8)
+        
+        # Blending tra immagine originale e B&W
+        blend_factor = min(intensity, 1.0)
+        result = cv2.addWeighted(img, 1 - blend_factor, gray_rgb, blend_factor, 0)
+        
+        return result
+    
+    @staticmethod
+    def _negative(img: np.ndarray, intensity: float) -> np.ndarray:
+        """
+        Effetto negativo - inverte i colori dell'immagine.
+        
+        Args:
+            img: Immagine input RGB
+            intensity: Intensità dell'effetto (0-1). 0 = colore originale, 1 = completamente negativo
+        """
+        if intensity < 0.1:
+            return img
+        
+        # Inverti i colori
+        inverted = 255 - img
+        
+        # Blending tra immagine originale e negativo
+        blend_factor = min(intensity, 1.0)
+        result = cv2.addWeighted(img, 1 - blend_factor, inverted, blend_factor, 0)
+        
+        return result
+    
+    @staticmethod
+    def _triangular_distortion(img: np.ndarray, intensity: float, frame_time: float) -> np.ndarray:
+        """
+        Effetto distorsione triangolare - crea pattern triangolari di distorsione.
+        
+        Args:
+            img: Immagine input
+            intensity: Intensità dell'effetto (0-1)
+            frame_time: Tempo corrente per animazione
+        """
+        if intensity < 0.3:
+            return img
+        
+        h, w = img.shape[:2]
+        distortion_strength = (intensity - 0.3) * 40
+        
+        # Crea griglia di coordinate
+        y_coords, x_coords = np.indices((h, w), dtype=np.float32)
+        
+        # Pattern triangolare (onda triangolare invece di sinusoidale)
+        # Frequenza triangolare lungo x e y
+        freq_x = 0.05
+        freq_y = 0.04
+        
+        # Onda triangolare: 2*abs(x - floor(x + 0.5))
+        tri_wave_x = 2 * np.abs((x_coords * freq_x + frame_time) - np.floor((x_coords * freq_x + frame_time) + 0.5))
+        tri_wave_y = 2 * np.abs((y_coords * freq_y + frame_time * 0.7) - np.floor((y_coords * freq_y + frame_time * 0.7) + 0.5))
+        
+        # Combina onde triangolari per distorsione
+        distort_x = distortion_strength * (tri_wave_y - 0.5)
+        distort_y = distortion_strength * (tri_wave_x - 0.5)
+        
+        # Applica distorsione
+        map_x = np.clip(x_coords + distort_x, 0, w - 1).astype(np.float32)
+        map_y = np.clip(y_coords + distort_y, 0, h - 1).astype(np.float32)
+        
+        result = cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+        
+        return result
+    
+    @staticmethod
+    def _geometric_distortion(img: np.ndarray, intensity: float, mode: str = "pinch") -> np.ndarray:
+        """
+        Effetto distorsione geometrica - applica distorsioni basate su forme geometriche.
+        
+        Args:
+            img: Immagine input
+            intensity: Intensità dell'effetto (0-1)
+            mode: Tipo di distorsione ("pinch", "barrel", "pincushion", "swirl")
+        """
+        if intensity < 0.2:
+            return img
+        
+        h, w = img.shape[:2]
+        cx, cy = w // 2, h // 2
+        
+        # Crea griglia di coordinate normalizzate
+        y_coords, x_coords = np.indices((h, w), dtype=np.float32)
+        
+        # Coordinate relative al centro
+        dx = (x_coords - cx) / cx
+        dy = (y_coords - cy) / cy
+        
+        # Distanza dal centro
+        distance = np.sqrt(dx**2 + dy**2)
+        
+        # Parametro di intensità
+        strength = (intensity - 0.2) * 1.5
+        
+        if mode == "pinch":
+            # Pinch effect - comprime verso il centro
+            factor = 1.0 - strength * (1.0 - distance) ** 2
+            factor = np.maximum(factor, 0.1)  # Evita divisione per zero
+            new_dx = dx * factor
+            new_dy = dy * factor
+        
+        elif mode == "barrel":
+            # Barrel distortion - rigonfiamento
+            r2 = dx**2 + dy**2
+            distortion = 1.0 + strength * r2
+            new_dx = dx * distortion
+            new_dy = dy * distortion
+        
+        elif mode == "pincushion":
+            # Pincushion distortion - compressione bordi
+            r2 = dx**2 + dy**2
+            distortion = 1.0 - strength * r2
+            new_dx = dx * distortion
+            new_dy = dy * distortion
+        
+        else:  # swirl
+            # Swirl effect - rotazione crescente dal centro
+            angle = np.arctan2(dy, dx)
+            swirl_amount = strength * (1.0 - distance)
+            new_angle = angle + swirl_amount
+            new_dx = distance * np.cos(new_angle) * np.sign(dx)
+            new_dy = distance * np.sin(new_angle) * np.sign(dy)
+        
+        # Converti coordinate normalizzate a pixel
+        map_x = np.clip(cx + new_dx * cx, 0, w - 1).astype(np.float32)
+        map_y = np.clip(cy + new_dy * cy, 0, h - 1).astype(np.float32)
+        
+        result = cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
         
         return result
 
@@ -990,7 +1354,7 @@ class AudioVisualFX:
         # Analisi sezioni intelligente (se richiesto)
         sections = None
         if self.effect_style == "intelligent":
-            sections = self._analyze_track_sections(y, sr, bass, mid, treble)
+            sections = self._analyze_track_sections(y, sr, bass, mid, treble, self._transition_duration_from_config)
             print(f"🧠 Modalità intelligente attivata con {len(sections)} sezioni")
 
         img = cv2.imread(self.image_file)
@@ -1910,6 +2274,7 @@ def generate_video(
     logo_scale: float = 0.15,
     logo_opacity: float = 1.0,
     logo_margin: int = 12,
+    config: Optional[dict] = None,  # Full preset configuration
 ) -> None:
     """Functional façade over AudioVisualFX for simple callers."""
     fx = AudioVisualFX(
@@ -1927,6 +2292,7 @@ def generate_video(
         logo_scale=logo_scale,
         logo_opacity=logo_opacity,
         logo_margin=logo_margin,
+        config=config,
     )
     fx.create_video()
 

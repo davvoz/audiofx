@@ -178,6 +178,42 @@ INTELLIGENT_ADAPTIVE_CONFIG = {
         (0.5, 0.1, 0.9),    # Viola profondo
         (0.9, 0.9, 0.1),    # Giallo brillante
         (0.1, 0.9, 0.5),    # Verde vivace
+    ],
+    'thresholds': {
+        'bass': 0.20,        # Bilanciato per analisi
+        'mid': 0.15,         # Sensibile ai cambi
+        'high': 0.12         # Reattivo agli alti
+    },
+    'effects': {
+        'strobe_intensity': 0.85,           # Variabile per sezione
+        'distortion_threshold': 0.30,       # Adattivo
+        'noise_level': 0.12,                # Medio
+        'flash_duration': 0.02,             # Rapido
+        # Parametri di analisi intelligente (VERSIONE CLASSICA)
+        'section_analysis': True,           # Abilita analisi sezioni
+        'energy_window': 2.0,               # Finestra analisi energia (secondi)
+        'transition_smoothing': 0.5,        # Smooth tra sezioni
+        'transition_duration': 3.0,         # Durata transizione smooth (secondi) - ULTRA SMOOTH
+        'adaptive_intensity': 0.90,         # Intensità adattamento
+        # Soglie riconoscimento sezioni
+        'intro_threshold': 0.35,            # Energia bassa = intro
+        'buildup_slope': 0.15,              # Pendenza energia = buildup
+        'drop_impact': 0.75,                # Impatto improvviso = drop
+        'break_sparsity': 0.40,             # Bassa densità = break
+        'outro_decay': 0.30,                # Decadimento = outro
+    }
+}
+
+INTELLIGENT_ADAPTIVE_PRO_CONFIG = {
+    'name': 'Intelligent Adaptive Pro',
+    'colors': [
+        # Palette versatile che si adatta a ogni sezione
+        (0.9, 0.1, 0.9),    # Magenta energetico
+        (0.1, 0.9, 0.9),    # Cyan fresco
+        (0.9, 0.5, 0.1),    # Arancione caldo
+        (0.5, 0.1, 0.9),    # Viola profondo
+        (0.9, 0.9, 0.1),    # Giallo brillante
+        (0.1, 0.9, 0.5),    # Verde vivace
         (0.9, 0.1, 0.5),    # Rosa intenso
         (0.1, 0.5, 0.9),    # Blu elettrico
     ],
@@ -195,6 +231,7 @@ INTELLIGENT_ADAPTIVE_CONFIG = {
         'section_analysis': True,           # Abilita analisi sezioni
         'energy_window': 2.0,               # Finestra analisi energia (secondi)
         'transition_smoothing': 0.5,        # Smooth tra sezioni
+        'transition_duration': 2.5,         # Durata transizione smooth Pro - ULTRA SMOOTH
         'adaptive_intensity': 0.90,         # Intensità adattamento
         # Soglie riconoscimento sezioni
         'intro_threshold': 0.35,            # Energia bassa = intro
@@ -202,6 +239,50 @@ INTELLIGENT_ADAPTIVE_CONFIG = {
         'drop_impact': 0.75,                # Impatto improvviso = drop
         'break_sparsity': 0.40,             # Bassa densità = break
         'outro_decay': 0.30,                # Decadimento = outro
+        
+        # ===== NUOVI EFFETTI INTELLIGENTI (PRO) =====
+        # Gradient Blend - Transizioni smooth tra sezioni
+        'use_gradient_blend': True,
+        'gradient_on_transition': True,     # Attiva su cambio sezione
+        'gradient_direction_intro': 'radial',      # Radial per intro
+        'gradient_direction_buildup': 'diagonal',  # Diagonal per buildup
+        'gradient_direction_drop': 'horizontal',   # Horizontal per drop
+        'gradient_direction_breakdown': 'vertical',# Vertical per breakdown
+        'gradient_intensity': 0.5,
+        
+        # Black & White - Atmosfera su sezioni specifiche
+        'use_black_and_white': True,
+        'bw_on_intro': 0.6,                 # B&W parziale su intro
+        'bw_on_breakdown': 0.7,             # B&W forte su breakdown
+        'bw_on_outro': 'progressive',       # Fade progressivo su outro
+        'bw_on_low_energy': True,           # B&W quando energia < threshold
+        'bw_threshold': 0.35,
+        
+        # Negative - Flash drammatici
+        'use_negative': True,
+        'negative_on_beat': True,           # Flash su beat forti
+        'negative_beat_threshold': 0.75,    # Solo beat > 0.75
+        'negative_on_drop': True,           # Attivo sui drop
+        'negative_intensity_max': 0.6,      # Intensità massima controllata
+        
+        # Triangular Distortion - Dinamica su mid frequencies
+        'use_triangular_distortion': True,
+        'triangular_on_mid': True,          # Attiva su mid (synth/lead)
+        'triangular_mid_threshold': 0.4,    # Soglia mid
+        'triangular_buildup_boost': 1.3,    # Boost nel buildup
+        'triangular_intensity_base': 0.6,
+        
+        # Geometric Distortion - Adattivo per sezione
+        'use_geometric_distortion': True,
+        'geometric_adaptive_mode': True,    # Cambia modalità per sezione
+        'geometric_intro_mode': 'pincushion',     # Intro: compressione sottile
+        'geometric_buildup_mode': 'pinch',        # Buildup: tensione crescente
+        'geometric_drop_mode': 'swirl',           # Drop: caos controllato
+        'geometric_breakdown_mode': 'barrel',     # Breakdown: espansione
+        'geometric_outro_mode': 'pincushion',     # Outro: chiusura
+        'geometric_bass_boost': True,       # Boost intensità sui bassi
+        'geometric_intensity_base': 0.6,
+        'geometric_intensity_max': 0.85,
     }
 }
 
@@ -304,7 +385,7 @@ def get_preset_config(preset_name: str) -> dict:
     
     Args:
         preset_name: Nome del preset ('dark_techno', 'cyberpunk', 'industrial', 'acid_house', 
-                     'extreme_vibrant', 'psychedelic_refraction', 'intelligent_adaptive')
+                     'extreme_vibrant', 'psychedelic_refraction', 'intelligent_adaptive', 'intelligent_adaptive_pro')
         
     Returns:
         Dizionario con la configurazione
@@ -316,7 +397,8 @@ def get_preset_config(preset_name: str) -> dict:
         'acid_house': ACID_HOUSE_CONFIG,
         'extreme_vibrant': EXTREME_VIBRANT_CONFIG,
         'psychedelic_refraction': PSYCHEDELIC_REFRACTION_CONFIG,
-        'intelligent_adaptive': INTELLIGENT_ADAPTIVE_CONFIG
+        'intelligent_adaptive': INTELLIGENT_ADAPTIVE_CONFIG,
+        'intelligent_adaptive_pro': INTELLIGENT_ADAPTIVE_PRO_CONFIG,
     }
     
     return presets.get(preset_name.lower(), DARK_TECHNO_CONFIG)
