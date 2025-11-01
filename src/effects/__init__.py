@@ -17,6 +17,7 @@ from .rgb_split import RGBSplitEffect
 from .electric_arcs import ElectricArcsEffect
 from .fashion_lightning import FashionLightningEffect
 from .advanced_glitch import AdvancedGlitchEffect
+from .dimensional_warp import DimensionalWarpEffect
 
 __all__ = [
     # Base classes
@@ -34,4 +35,5 @@ __all__ = [
     'ElectricArcsEffect',
     'FashionLightningEffect',
     'AdvancedGlitchEffect',
+    'DimensionalWarpEffect',
 ]

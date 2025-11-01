@@ -39,6 +39,7 @@ class App(tk.Tk):
         self.effect_electric_arcs = tk.BooleanVar(value=False)
         self.effect_fashion_lightning = tk.BooleanVar(value=False)
         self.effect_advanced_glitch = tk.BooleanVar(value=False)
+        self.effect_dimensional_warp = tk.BooleanVar(value=False)
         
         # Custom effect intensities
         self.intensity_color_pulse = tk.DoubleVar(value=1.0)
@@ -52,6 +53,7 @@ class App(tk.Tk):
         self.intensity_electric_arcs = tk.DoubleVar(value=1.0)
         self.intensity_fashion_lightning = tk.DoubleVar(value=1.0)
         self.intensity_advanced_glitch = tk.DoubleVar(value=1.0)
+        self.intensity_dimensional_warp = tk.DoubleVar(value=1.0)
         
         # Custom thresholds
         self.threshold_bass = tk.DoubleVar(value=0.3)
@@ -219,6 +221,7 @@ class App(tk.Tk):
             ("ElectricArcs", self.effect_electric_arcs, self.intensity_electric_arcs),
             ("FashionLightning", self.effect_fashion_lightning, self.intensity_fashion_lightning),
             ("AdvancedGlitch", self.effect_advanced_glitch, self.intensity_advanced_glitch),
+            ("DimensionalWarp", self.effect_dimensional_warp, self.intensity_dimensional_warp),
         ]
         
         for idx, (name, var, intensity_var) in enumerate(effects):
@@ -355,6 +358,7 @@ class App(tk.Tk):
             self.effect_electric_arcs.get(),
             self.effect_fashion_lightning.get(),
             self.effect_advanced_glitch.get(),
+            self.effect_dimensional_warp.get(),
         ]):
             messagebox.showerror("Errore", "Seleziona almeno un effetto")
             return
@@ -386,7 +390,7 @@ class App(tk.Tk):
                 from src.effects import (
                     ColorPulseEffect, ZoomPulseEffect, StrobeEffect, GlitchEffect,
                     ChromaticAberrationEffect, BubbleDistortionEffect, ScreenShakeEffect, RGBSplitEffect,
-                    ElectricArcsEffect, FashionLightningEffect, AdvancedGlitchEffect
+                    ElectricArcsEffect, FashionLightningEffect, AdvancedGlitchEffect, DimensionalWarpEffect
                 )
                 from src.factories import EffectFactory
                 
@@ -474,6 +478,18 @@ class App(tk.Tk):
                         channel_shift_amount=8,
                         block_size_range=(10, 80),
                         intensity=self.intensity_advanced_glitch.get()
+                    ))
+                
+                if self.effect_dimensional_warp.get():
+                    custom_effects.append(DimensionalWarpEffect(
+                        bass_threshold=self.threshold_bass.get(),
+                        mid_threshold=self.threshold_mid.get(),
+                        warp_strength=45.0,
+                        rotation_speed=0.5,
+                        perspective_depth=200.0,
+                        wave_frequency=2.0,
+                        layer_count=3,
+                        intensity=self.intensity_dimensional_warp.get()
                     ))
                 
                 # Create custom pipeline
