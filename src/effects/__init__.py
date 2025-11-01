@@ -16,6 +16,7 @@ from .screen_shake import ScreenShakeEffect
 from .rgb_split import RGBSplitEffect
 from .electric_arcs import ElectricArcsEffect
 from .fashion_lightning import FashionLightningEffect
+from .advanced_glitch import AdvancedGlitchEffect
 
 __all__ = [
     # Base classes
@@ -32,4 +33,5 @@ __all__ = [
     'RGBSplitEffect',
     'ElectricArcsEffect',
     'FashionLightningEffect',
+    'AdvancedGlitchEffect',
 ]

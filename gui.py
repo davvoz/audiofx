@@ -67,6 +67,7 @@ class App(tk.Tk):
         self.effect_rgb_split = tk.BooleanVar(value=False)
         self.effect_electric_arcs = tk.BooleanVar(value=False)
         self.effect_fashion_lightning = tk.BooleanVar(value=False)
+        self.effect_advanced_glitch = tk.BooleanVar(value=False)
         
         # Custom effect intensities
         self.intensity_color_pulse = tk.DoubleVar(value=1.0)
@@ -79,6 +80,7 @@ class App(tk.Tk):
         self.intensity_rgb_split = tk.DoubleVar(value=1.0)
         self.intensity_electric_arcs = tk.DoubleVar(value=1.0)
         self.intensity_fashion_lightning = tk.DoubleVar(value=1.0)
+        self.intensity_advanced_glitch = tk.DoubleVar(value=1.0)
         
         # Custom thresholds
         self.threshold_bass = tk.DoubleVar(value=0.3)
@@ -757,6 +759,7 @@ class App(tk.Tk):
             ("RGBSplit", self.effect_rgb_split, self.intensity_rgb_split),
             ("ElectricArcs", self.effect_electric_arcs, self.intensity_electric_arcs),
             ("FashionLightning", self.effect_fashion_lightning, self.intensity_fashion_lightning),
+            ("AdvancedGlitch", self.effect_advanced_glitch, self.intensity_advanced_glitch),
         ]
         
         for idx, (name, var, intensity_var) in enumerate(effects):
@@ -892,6 +895,7 @@ class App(tk.Tk):
             self.effect_rgb_split.get(),
             self.effect_electric_arcs.get(),
             self.effect_fashion_lightning.get(),
+            self.effect_advanced_glitch.get(),
         ]):
             messagebox.showerror("Errore", "Seleziona almeno un effetto")
             return
@@ -923,7 +927,7 @@ class App(tk.Tk):
                 from src.effects import (
                     ColorPulseEffect, ZoomPulseEffect, StrobeEffect, GlitchEffect,
                     ChromaticAberrationEffect, BubbleDistortionEffect, ScreenShakeEffect, RGBSplitEffect,
-                    ElectricArcsEffect, FashionLightningEffect
+                    ElectricArcsEffect, FashionLightningEffect, AdvancedGlitchEffect
                 )
                 from src.factories import EffectFactory
                 
@@ -1003,6 +1007,14 @@ class App(tk.Tk):
                         segment_length_min=5,
                         segment_length_max=20,
                         intensity=self.intensity_fashion_lightning.get()
+                    ))
+                
+                if self.effect_advanced_glitch.get():
+                    custom_effects.append(AdvancedGlitchEffect(
+                        threshold=0.5,
+                        channel_shift_amount=8,
+                        block_size_range=(10, 80),
+                        intensity=self.intensity_advanced_glitch.get()
                     ))
                 
                 # Create custom pipeline
