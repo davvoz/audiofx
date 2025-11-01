@@ -7,6 +7,9 @@ from typing import Optional, Callable
 import numpy as np
 import cv2
 import librosa
+import os
+import tempfile
+import subprocess
 
 from .models.data_models import EffectStyle, EffectConfig
 from .core.audio_analyzer import AudioAnalyzer
@@ -166,22 +169,15 @@ class VideoAudioSync:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.video_resolution = (width, height)
         
-        self.video_frames = []
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            # Convert BGR to RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            self.video_frames.append(frame_rgb)
-        
+        # Get frame count without loading frames
+        self.total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         cap.release()
         
-        if not self.video_frames:
-            raise ValueError("No frames extracted from video")
+        if self.total_video_frames == 0:
+            raise ValueError("No frames in video file")
         
         self._notify("status", {
-            "message": f"Video caricato: {len(self.video_frames)} frames @ {self.video_fps:.2f} fps"
+            "message": f"Video analizzato: {self.total_video_frames} frames @ {self.video_fps:.2f} fps"
         })
     
     def _sync_video_to_audio(self) -> list:
@@ -191,7 +187,7 @@ class VideoAudioSync:
         Returns:
             List of frame indices to use for output
         """
-        video_duration = len(self.video_frames) / self.video_fps
+        video_duration = self.total_video_frames / self.video_fps
         
         self._notify("status", {
             "message": f"Sincronizzazione: audio={self.audio_duration:.2f}s, video={video_duration:.2f}s"
@@ -199,7 +195,7 @@ class VideoAudioSync:
         
         # Calculate required frames
         required_frames = int(self.audio_duration * self.video_fps)
-        available_frames = len(self.video_frames)
+        available_frames = self.total_video_frames
         
         if required_frames <= available_frames:
             # Video is longer or equal - just trim
@@ -247,16 +243,53 @@ class VideoAudioSync:
         self.effect_manager = EffectStyleManager(self.effect_config)
         pipeline = self.effect_manager.get_pipeline(self.effect_style)
         
-        # Generate frames with effects
+        # Generate frames with effects using streaming
         total_frames = len(frame_indices)
         self._notify("start", {"total_frames": total_frames})
+        self._notify("status", {"message": "Processing video con streaming..."})
         
-        output_frames = []
+        # Open video for streaming
+        cap = cv2.VideoCapture(self.video_file)
+        width, height = self.video_resolution
+        
+        # Write directly to temporary video file (use AVI temp)
+        import tempfile
+        import os
+        temp_video_avi = tempfile.mktemp(suffix='_temp.avi', dir=os.path.dirname(self.output_file))
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        writer = cv2.VideoWriter(temp_video_avi, fourcc, int(self.video_fps), (width, height))
+        
+        # Cache for loop mode
+        frame_cache = {}
+        last_frame_idx = -1
+        cached_frame = None
+        
         for idx, frame_idx in enumerate(frame_indices):
             self._notify("frame", {"index": idx + 1, "total": total_frames})
             
-            # Get base frame from video
-            base_frame = self.video_frames[frame_idx].copy()
+            # Load frame only if needed (optimize for sequential and loop access)
+            if frame_idx == last_frame_idx and cached_frame is not None:
+                base_frame = cached_frame.copy()
+            elif frame_idx in frame_cache:
+                base_frame = frame_cache[frame_idx].copy()
+            else:
+                # Seek and read frame
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                ret, frame = cap.read()
+                if not ret:
+                    if cached_frame is not None:
+                        base_frame = cached_frame.copy()
+                    else:
+                        base_frame = np.zeros((height, width, 3), dtype=np.uint8)
+                else:
+                    base_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    
+                    # Cache frame if in loop mode and not too many cached
+                    if self.short_video_mode == "loop" and len(frame_cache) < 300:
+                        frame_cache[frame_idx] = base_frame.copy()
+            
+            cached_frame = base_frame.copy()
+            last_frame_idx = frame_idx
             
             # Setup frame generator for this frame
             frame_generator = FrameGenerator(
@@ -276,18 +309,59 @@ class VideoAudioSync:
             if self.logo_file:
                 frame_with_effects = self._overlay_logo(frame_with_effects)
             
-            output_frames.append(frame_with_effects)
+            # Write directly to video
+            writer.write(cv2.cvtColor(frame_with_effects, cv2.COLOR_RGB2BGR))
+            
+            # Free memory
+            del base_frame
+            del frame_with_effects
         
-        # Export video
-        self._notify("status", {"message": "Encoding video..."})
-        exporter = VideoExporter(
-            output_file=self.output_file,
-            fps=int(self.video_fps)
-        )
-        exporter.export(
-            frames=output_frames,
-            audio_file=self.audio_file,
-            progress_cb=self.progress_cb
-        )
+        # Release resources
+        cap.release()
+        writer.release()
+        frame_cache.clear()
+        
+        # Add audio to video
+        self._notify("status", {"message": "Aggiunta audio al video..."})
+        import subprocess
+        import os
+        import shutil
+        
+        audio_added = False
+        
+        # Try ffmpeg first (fastest)
+        try:
+            result = subprocess.run([
+                'ffmpeg', '-y', '-i', temp_video_avi, '-i', self.audio_file,
+                '-c:v', 'libx264', '-c:a', 'aac', '-shortest', self.output_file
+            ], check=True, capture_output=True)
+            os.remove(temp_video_avi)
+            audio_added = True
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            # Fallback to moviepy
+            try:
+                # Try MoviePy 2.x import first
+                try:
+                    from moviepy import VideoFileClip, AudioFileClip
+                except ImportError:
+                    from moviepy.editor import VideoFileClip, AudioFileClip
+                
+                self._notify("status", {"message": "Aggiunta audio con moviepy..."})
+                video_clip = VideoFileClip(temp_video_avi)
+                audio_clip = AudioFileClip(self.audio_file)
+                final_clip = video_clip.with_audio(audio_clip)
+                final_clip.write_videofile(self.output_file, codec='libx264', audio_codec='aac', logger=None)
+                video_clip.close()
+                audio_clip.close()
+                final_clip.close()
+                os.remove(temp_video_avi)
+                audio_added = True
+            except Exception as e2:
+                # Last resort: convert video without audio
+                try:
+                    subprocess.run(['ffmpeg', '-y', '-i', temp_video_avi, '-c:v', 'libx264', self.output_file], check=False)
+                    os.remove(temp_video_avi)
+                except:
+                    pass
         
         self._notify("done", {"output": self.output_file})

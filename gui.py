@@ -4,6 +4,7 @@ Now using modular architecture from src/ package.
 """
 
 import os
+import subprocess
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -1021,11 +1022,15 @@ class App(tk.Tk):
                 custom_pipeline = EffectFactory.create_custom_pipeline(custom_effects)
                 
                 if mode == "image":
-                    # Image mode: manual implementation with custom pipeline
+                    # Image mode: optimized streaming implementation
                     from src.core.audio_analyzer import AudioAnalyzer
                     from src.core.frame_generator import FrameGenerator
-                    from src.core.video_exporter import VideoExporter
                     from src.utils.image_loader import ImageLoader
+                    import cv2
+                    import subprocess
+                    import os
+                    import tempfile
+                    import shutil
                     
                     # Analyze audio
                     progress_cb("status", {"message": "Analisi audio..."})
@@ -1035,6 +1040,7 @@ class App(tk.Tk):
                     # Load image
                     progress_cb("status", {"message": "Caricamento immagine..."})
                     base_image = ImageLoader.load_and_prepare(image, (720, 720))
+                    height, width = base_image.shape[:2]
                     
                     # Create frame generator with custom pipeline
                     progress_cb("status", {"message": "Setup effetti custom..."})
@@ -1044,11 +1050,17 @@ class App(tk.Tk):
                         fps=fps
                     )
                     
-                    # Generate frames
+                    # Generate frames with streaming
                     num_frames = len(audio_data.bass_energy)
                     progress_cb("start", {"total_frames": num_frames})
+                    progress_cb("status", {"message": "Processing con streaming..."})
                     
-                    output_frames = []
+                    # Write directly to temporary video file (use AVI for temp, then convert)
+                    import tempfile
+                    temp_video_avi = tempfile.mktemp(suffix='_temp.avi', dir=os.path.dirname(output))
+                    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+                    writer = cv2.VideoWriter(temp_video_avi, fourcc, fps, (width, height))
+                    
                     for idx in range(num_frames):
                         progress_cb("frame", {"index": idx + 1, "total": num_frames})
                         
@@ -1057,12 +1069,54 @@ class App(tk.Tk):
                             audio_analysis=audio_data,
                             color_index=idx % 6
                         )
-                        output_frames.append(frame)
+                        
+                        # Write directly (convert RGB to BGR for cv2)
+                        writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                        
+                        # Free memory immediately
+                        del frame
                     
-                    # Export video
-                    progress_cb("status", {"message": "Encoding video..."})
-                    exporter = VideoExporter(output, fps)
-                    exporter.export(output_frames, audio, progress_cb)
+                    writer.release()
+                    
+                    # Add audio with ffmpeg or moviepy
+                    progress_cb("status", {"message": "Aggiunta audio al video..."})
+                    
+                    audio_added = False
+                    
+                    # Try ffmpeg first (fastest)
+                    try:
+                        result = subprocess.run([
+                            'ffmpeg', '-y', '-i', temp_video_avi, '-i', audio,
+                            '-c:v', 'libx264', '-c:a', 'aac', '-shortest', output
+                        ], check=True, capture_output=True)
+                        os.remove(temp_video_avi)
+                        audio_added = True
+                    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                        # Fallback to moviepy
+                        try:
+                            # Try MoviePy 2.x import first
+                            try:
+                                from moviepy import VideoFileClip, AudioFileClip
+                            except ImportError:
+                                from moviepy.editor import VideoFileClip, AudioFileClip
+                            
+                            progress_cb("status", {"message": "Aggiunta audio con moviepy..."})
+                            video_clip = VideoFileClip(temp_video_avi)
+                            audio_clip = AudioFileClip(audio)
+                            final_clip = video_clip.with_audio(audio_clip)
+                            final_clip.write_videofile(output, codec='libx264', audio_codec='aac', logger=None)
+                            video_clip.close()
+                            audio_clip.close()
+                            final_clip.close()
+                            os.remove(temp_video_avi)
+                            audio_added = True
+                        except Exception as e2:
+                            # Last resort: convert video without audio
+                            try:
+                                subprocess.run(['ffmpeg', '-y', '-i', temp_video_avi, '-c:v', 'libx264', output], check=False)
+                                os.remove(temp_video_avi)
+                            except:
+                                pass
                     
                     progress_cb("done", {"output": output})
                 else:
@@ -1070,26 +1124,26 @@ class App(tk.Tk):
                     from src.video_audio_sync import VideoAudioSync
                     from src.models.data_models import EffectConfig
                     import cv2
+                    import numpy as np
                     from src.core.audio_analyzer import AudioAnalyzer
                     from src.core.frame_generator import FrameGenerator
                     from src.core.video_exporter import VideoExporter
+                    import subprocess
+                    import os
+                    import tempfile
+                    import shutil
                     
-                    # Load video to get FPS and frames
-                    progress_cb("status", {"message": "Caricamento video..."})
+                    # Get video metadata without loading all frames
+                    progress_cb("status", {"message": "Analisi video..."})
                     cap = cv2.VideoCapture(video)
                     video_fps = cap.get(cv2.CAP_PROP_FPS)
-                    video_frames = []
-                    while True:
-                        ret, frame = cap.read()
-                        if not ret:
-                            break
-                        video_frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                    cap.release()
+                    available_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
                     
-                    if not video_frames:
-                        raise ValueError("Impossibile caricare frames dal video")
-                    
-                    resolution = (video_frames[0].shape[1], video_frames[0].shape[0])
+                    if available_frames == 0:
+                        cap.release()
+                        raise ValueError("Impossibile leggere il video")
                     
                     # Load and analyze audio
                     progress_cb("status", {"message": "Analisi audio..."})
@@ -1097,9 +1151,8 @@ class App(tk.Tk):
                     audio_data = audio_analyzer.load_and_analyze(audio, fps=int(video_fps))
                     audio_duration = len(audio_data.audio_signal) / audio_data.sample_rate
                     
-                    # Sync video frames to audio duration
+                    # Calculate frame mapping (without loading frames)
                     required_frames = int(audio_duration * video_fps)
-                    available_frames = len(video_frames)
                     
                     if required_frames <= available_frames:
                         frame_indices = list(range(required_frames))
@@ -1118,34 +1171,134 @@ class App(tk.Tk):
                             frame_indices.extend([i] * repeat_count)
                         frame_indices = frame_indices[:required_frames]
                     
-                    # Generate frames with custom effects
+                    # Process video with streaming (frame by frame)
                     total_frames = len(frame_indices)
                     progress_cb("start", {"total_frames": total_frames})
+                    progress_cb("status", {"message": "Processing video con streaming..."})
                     
-                    output_frames = []
+                    # Initialize video writer for direct streaming (use AVI temp)
+                    temp_video_avi = tempfile.mktemp(suffix='_temp.avi', dir=os.path.dirname(output))
+                    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+                    writer = cv2.VideoWriter(temp_video_avi, fourcc, int(video_fps), (width, height))
+                    
+                    # Cache for loop mode - store only necessary frames
+                    frame_cache = {}
+                    last_frame_idx = -1
+                    cached_frame = None
+                    
                     for idx, frame_idx in enumerate(frame_indices):
                         progress_cb("frame", {"index": idx + 1, "total": total_frames})
                         
-                        base_frame = video_frames[frame_idx].copy()
+                        # Load frame only if needed (optimize for sequential and loop access)
+                        if frame_idx in frame_cache:
+                            # Get from cache (for loop mode)
+                            base_frame = frame_cache[frame_idx].copy()
+                        elif frame_idx == last_frame_idx and cached_frame is not None:
+                            # Reuse last frame (for stretch mode with repeated frames)
+                            base_frame = cached_frame.copy()
+                        else:
+                            # Seek and read frame from video
+                            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                            ret, frame = cap.read()
+                            if not ret:
+                                # Fallback to last cached frame or black frame
+                                if cached_frame is not None:
+                                    base_frame = cached_frame.copy()
+                                else:
+                                    base_frame = np.zeros((height, width, 3), dtype=np.uint8)
+                            else:
+                                base_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                                
+                                # Cache frame if in loop mode and not too many cached
+                                if short_mode == "loop" and len(frame_cache) < 300:
+                                    frame_cache[frame_idx] = base_frame.copy()
                         
-                        frame_generator = FrameGenerator(
-                            base_image=base_frame,
-                            effect_pipeline=custom_pipeline,
-                            fps=int(video_fps)
-                        )
+                        # Update cache for stretch mode
+                        cached_frame = base_frame.copy()
+                        last_frame_idx = frame_idx
                         
-                        frame_with_effects = frame_generator.generate_frame(
+                        # Apply effects directly on the current frame
+                        from src.models.data_models import FrameContext
+                        
+                        # Get audio features for this frame
+                        time = idx / video_fps
+                        bass = audio_data.bass_energy[idx] if idx < len(audio_data.bass_energy) else 0.0
+                        mid = audio_data.mid_energy[idx] if idx < len(audio_data.mid_energy) else 0.0
+                        treble = audio_data.treble_energy[idx] if idx < len(audio_data.treble_energy) else 0.0
+                        
+                        # Calculate beat intensity
+                        beat_intensity = 0.0
+                        for beat_time in audio_data.beat_times:
+                            if abs(beat_time - time) < 0.1:
+                                beat_intensity = 1.0
+                                break
+                        
+                        # Create frame context for this frame
+                        frame_context = FrameContext(
+                            frame=base_frame,
+                            time=time,
                             frame_index=idx,
-                            audio_analysis=audio_data,
+                            bass=bass,
+                            mid=mid,
+                            treble=treble,
+                            beat_intensity=beat_intensity,
                             color_index=0
                         )
                         
-                        output_frames.append(frame_with_effects)
+                        # Apply custom pipeline effects
+                        frame_with_effects = custom_pipeline.apply(frame_context)
+                        
+                        # Write directly to video (convert back to BGR)
+                        writer.write(cv2.cvtColor(frame_with_effects, cv2.COLOR_RGB2BGR))
+                        
+                        # Clear frame to free memory
+                        del base_frame
+                        del frame_with_effects
                     
-                    # Export video
-                    progress_cb("status", {"message": "Encoding video..."})
-                    exporter = VideoExporter(output, int(video_fps))
-                    exporter.export(output_frames, audio, progress_cb)
+                    # Release resources
+                    cap.release()
+                    writer.release()
+                    frame_cache.clear()
+                    
+                    # Add audio to video
+                    progress_cb("status", {"message": "Aggiunta audio al video..."})
+                    
+                    audio_added = False
+                    
+                    # Try ffmpeg first (fastest)
+                    try:
+                        result = subprocess.run([
+                            'ffmpeg', '-y', '-i', temp_video_avi, '-i', audio,
+                            '-c:v', 'libx264', '-c:a', 'aac', '-shortest', output
+                        ], check=True, capture_output=True)
+                        os.remove(temp_video_avi)
+                        audio_added = True
+                    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                        # Fallback to moviepy
+                        try:
+                            # Try MoviePy 2.x import first
+                            try:
+                                from moviepy import VideoFileClip, AudioFileClip
+                            except ImportError:
+                                from moviepy.editor import VideoFileClip, AudioFileClip
+                            
+                            progress_cb("status", {"message": "Aggiunta audio con moviepy..."})
+                            video_clip = VideoFileClip(temp_video_avi)
+                            audio_clip = AudioFileClip(audio)
+                            final_clip = video_clip.with_audio(audio_clip)
+                            final_clip.write_videofile(output, codec='libx264', audio_codec='aac', logger=None)
+                            video_clip.close()
+                            audio_clip.close()
+                            final_clip.close()
+                            os.remove(temp_video_avi)
+                            audio_added = True
+                        except Exception as e2:
+                            # Last resort: convert video without audio
+                            try:
+                                subprocess.run(['ffmpeg', '-y', '-i', temp_video_avi, '-c:v', 'libx264', output], check=False)
+                                os.remove(temp_video_avi)
+                            except:
+                                pass
                     
                     progress_cb("done", {"output": output})
                 
