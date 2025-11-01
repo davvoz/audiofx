@@ -66,6 +66,7 @@ class App(tk.Tk):
         self.effect_screen_shake = tk.BooleanVar(value=False)
         self.effect_rgb_split = tk.BooleanVar(value=False)
         self.effect_electric_arcs = tk.BooleanVar(value=False)
+        self.effect_fashion_lightning = tk.BooleanVar(value=False)
         
         # Custom effect intensities
         self.intensity_color_pulse = tk.DoubleVar(value=1.0)
@@ -77,6 +78,7 @@ class App(tk.Tk):
         self.intensity_screen_shake = tk.DoubleVar(value=1.0)
         self.intensity_rgb_split = tk.DoubleVar(value=1.0)
         self.intensity_electric_arcs = tk.DoubleVar(value=1.0)
+        self.intensity_fashion_lightning = tk.DoubleVar(value=1.0)
         
         # Custom thresholds
         self.threshold_bass = tk.DoubleVar(value=0.3)
@@ -754,6 +756,7 @@ class App(tk.Tk):
             ("ScreenShake", self.effect_screen_shake, self.intensity_screen_shake),
             ("RGBSplit", self.effect_rgb_split, self.intensity_rgb_split),
             ("ElectricArcs", self.effect_electric_arcs, self.intensity_electric_arcs),
+            ("FashionLightning", self.effect_fashion_lightning, self.intensity_fashion_lightning),
         ]
         
         for idx, (name, var, intensity_var) in enumerate(effects):
@@ -888,6 +891,7 @@ class App(tk.Tk):
             self.effect_screen_shake.get(),
             self.effect_rgb_split.get(),
             self.effect_electric_arcs.get(),
+            self.effect_fashion_lightning.get(),
         ]):
             messagebox.showerror("Errore", "Seleziona almeno un effetto")
             return
@@ -919,7 +923,7 @@ class App(tk.Tk):
                 from src.effects import (
                     ColorPulseEffect, ZoomPulseEffect, StrobeEffect, GlitchEffect,
                     ChromaticAberrationEffect, BubbleDistortionEffect, ScreenShakeEffect, RGBSplitEffect,
-                    ElectricArcsEffect
+                    ElectricArcsEffect, FashionLightningEffect
                 )
                 from src.factories import EffectFactory
                 
@@ -986,6 +990,19 @@ class App(tk.Tk):
                         colors=default_colors,
                         threshold=0.7,
                         intensity=self.intensity_electric_arcs.get()
+                    ))
+                
+                if self.effect_fashion_lightning.get():
+                    # Fashion colors for lightning - more vibrant and trendy
+                    fashion_colors = [(1.0, 0.0, 0.8), (0.0, 0.9, 1.0), (0.8, 1.0, 0.0)]
+                    custom_effects.append(FashionLightningEffect(
+                        colors=fashion_colors,
+                        threshold=0.65,
+                        branching_probability=0.6,
+                        max_branches=5,
+                        segment_length_min=5,
+                        segment_length_max=20,
+                        intensity=self.intensity_fashion_lightning.get()
                     ))
                 
                 # Create custom pipeline

@@ -15,6 +15,7 @@ from .bubble_distortion import BubbleDistortionEffect
 from .screen_shake import ScreenShakeEffect
 from .rgb_split import RGBSplitEffect
 from .electric_arcs import ElectricArcsEffect
+from .fashion_lightning import FashionLightningEffect
 
 __all__ = [
     # Base classes
@@ -30,4 +31,5 @@ __all__ = [
     'ScreenShakeEffect',
     'RGBSplitEffect',
     'ElectricArcsEffect',
+    'FashionLightningEffect',
 ]
