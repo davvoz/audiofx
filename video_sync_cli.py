@@ -2,13 +2,13 @@
 Video Audio Sync CLI
 Sincronizza un video con un audio. La durata dell'audio comanda:
 - Video troppo lungo: viene tagliato
-- Video troppo corto: viene messo in loop
+- Video troppo corto: viene messo in loop o rallentato
 """
 
 import argparse
 import os
 
-from video_generator import VideoAudioFX
+from src import VideoAudioSync, EffectStyle
 
 
 def main() -> None:
@@ -48,6 +48,12 @@ def main() -> None:
     parser.add_argument(
         "--logo-margin", type=int, default=12, help="Margine del logo dai bordi in pixel"
     )
+    parser.add_argument(
+        "--effect-style",
+        choices=["standard", "extreme", "psychedelic", "minimal"],
+        default="standard",
+        help="Stile degli effetti audio-reattivi da applicare (default: standard)",
+    )
 
     args = parser.parse_args()
 
@@ -57,6 +63,15 @@ def main() -> None:
     if not os.path.exists(args.video):
         print(f"Errore: File video '{args.video}' non trovato")
         return
+
+    # Map effect style string to enum
+    style_map = {
+        "standard": EffectStyle.STANDARD,
+        "extreme": EffectStyle.EXTREME,
+        "psychedelic": EffectStyle.PSYCHEDELIC,
+        "minimal": EffectStyle.MINIMAL,
+    }
+    effect_style = style_map.get(args.effect_style, EffectStyle.STANDARD)
 
     def _progress(event: str, payload: dict) -> None:
         if event == "status":
@@ -71,21 +86,22 @@ def main() -> None:
         elif event == "done":
             print(f"Video sincronizzato creato: {payload.get('output')}")
 
-    fx = VideoAudioFX(
+    syncer = VideoAudioSync(
         audio_file=args.audio,
         video_file=args.video,
         output_file=args.output,
-        progress_cb=_progress,
+        effect_style=effect_style,
         short_video_mode=args.short_video_mode,
         logo_file=args.logo,
         logo_position=args.logo_position,
         logo_scale=args.logo_scale,
         logo_opacity=args.logo_opacity,
         logo_margin=args.logo_margin,
+        progress_cb=_progress,
     )
 
     try:
-        fx.create_video()
+        syncer.sync()
         print("\n🎉 Video sincronizzato con successo! 🎉")
         print(f"\nOutput: {args.output}")
     except Exception as e:

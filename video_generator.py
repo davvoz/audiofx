@@ -1280,6 +1280,204 @@ class AudioVisualFX:
         result = cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
         
         return result
+    
+    @staticmethod
+    def _rotating_3d_solids(
+        img: np.ndarray, 
+        intensity: float, 
+        frame_time: float,
+        beat_intensity: float = 0.0,
+        bass: float = 0.0,
+        mid: float = 0.0,
+        treble: float = 0.0
+    ) -> np.ndarray:
+        """
+        Effetto solidi 3D rotanti - distorce l'immagine in forme geometriche 3D che ruotano,
+        pulsano e ESPLODONO in particelle psichedeliche a tempo di musica.
+        
+        Args:
+            img: Immagine input
+            intensity: Intensità globale dell'effetto (0-1)
+            frame_time: Tempo corrente per animazione
+            beat_intensity: Intensità del beat (0-1) per collisioni/esplosioni
+            bass: Intensità bassi (0-1) per pulsazioni
+            mid: Intensità medi (0-1) per velocità rotazione
+            treble: Intensità alti (0-1) per frammentazione
+        """
+        if intensity < 0.3:
+            return img
+        
+        h, w = img.shape[:2]
+        cx, cy = w // 2, h // 2
+        
+        # Crea griglia di coordinate
+        y_coords, x_coords = np.indices((h, w), dtype=np.float32)
+        
+        # Coordinate relative al centro (-1 a 1)
+        dx = (x_coords - cx) / (w / 2)
+        dy = (y_coords - cy) / (h / 2)
+        
+        # Distanza dal centro
+        distance = np.sqrt(dx**2 + dy**2)
+        angle = np.arctan2(dy, dx)
+        
+        # ========== PARAMETRI AUDIO-REATTIVI (ULTRA RALLENTATI) ==========
+        # Velocità rotazione ULTRA LENTA - controllata dai mid
+        rotation_speed = 0.15 + mid * 0.4  # DRASTICAMENTE rallentato! Era 0.5 + mid * 1.2
+        
+        # Pulsazione controllata dai bassi (kick drum) - MOLTO PIÙ LENTA
+        pulse_amount = 0.1 + bass * 0.3
+        pulse_wave = np.sin(frame_time * 2.0) * pulse_amount  # LENTISSIMA - era 4.0
+        
+        # Numero di solidi FISSO per semplicità - pochi solidi grandi e chiari
+        num_solids = 4  # FISSO a 4 per non confondere
+        
+        # ========== ESPLOSIONE SEMPLIFICATA ==========
+        # Esplosione sui beat forti - MOLTO PIÙ SEMPLICE E LENTA
+        explosion_intensity = 0.0
+        particle_dispersion = 0.0
+        
+        if beat_intensity > 0.7:  # Soglia più alta - solo sui beat forti
+            # Intensità esplosione RIDOTTA per non confondere
+            explosion_intensity = (beat_intensity - 0.7) * 1.2  # Era 2.5 - MOLTO ridotto!
+            
+            # Dispersione particelle RALLENTATA
+            explosion_wave = np.sin(distance * 4.0 - frame_time * 3.0) * explosion_intensity  # Era 8.0 e 12.0
+            particle_dispersion = explosion_wave * (1.0 - distance * 0.5)  # Meno intenso
+        
+        # ========== PROIEZIONE 3D (RALLENTATA) ==========
+        # Simula rotazione 3D con proiezione prospettica
+        # Dividi l'immagine in segmenti radiali (solidi)
+        segment_angle = (2 * np.pi) / num_solids
+        segment_id = np.floor(angle / segment_angle).astype(int)
+        
+        # Ogni segmento ruota indipendentemente (PIÙ LENTO)
+        rotation_offset = segment_id * (np.pi / num_solids)
+        current_rotation = frame_time * rotation_speed + rotation_offset
+        
+        # Proiezione pseudo-3D SEMPLIFICATA
+        # Simula rotazione attorno all'asse Y (orizzontale) - MOLTO PIÙ LENTA
+        depth = 0.4 + 0.6 * np.cos(current_rotation * 0.5 + angle * num_solids * 0.3)  # RALLENTATO TUTTO
+        depth = np.clip(depth, 0.3, 1.0)  # Range ridotto per meno variazione
+        
+        # Scala basata sulla profondità (prospettiva) - PIÙ STABILE
+        perspective_scale = 0.8 + 0.2 * depth  # Era 0.7 + 0.3 - meno variazione!
+        
+        # Pulsazione basata sui bassi - RIDOTTA
+        pulse_scale = 1.0 + pulse_wave * 0.3 * (1.0 - distance * 0.3)  # Molto più sottile
+        
+        # ESPLOSIONE PARTICELLARE sui beat - MOLTO PIÙ DELICATA
+        explosion_scale = 1.0
+        if beat_intensity > 0.7:  # Soglia più alta
+            # Esplosione MINIMA per non confondere
+            explosion_scale = 1.0 + explosion_intensity * 0.4 * (1.1 - distance * 0.5)  # Era 1.2 - RIDOTTO!
+        
+        # Scala finale combinata
+        final_scale = perspective_scale * pulse_scale * explosion_scale
+        
+        # ========== DISTORSIONE DIMENSIONALE (ULTRA SEMPLIFICATA) ==========
+        # Warp MINIMO - solo un tocco di liquidità
+        warp_intensity = (intensity - 0.3) * 0.6  # Era 1.5 - DRASTICAMENTE ridotto!
+        
+        # Onda sinusoidale LENTISSIMA e SOTTILE
+        dimensional_wave_x = np.sin(angle * num_solids * 0.3 + current_rotation * 0.5) * warp_intensity * 0.08  # Era 0.7 e 1.0
+        dimensional_wave_y = np.cos(angle * num_solids * 0.3 - current_rotation * 0.4) * warp_intensity * 0.08  # Era 0.7 e 0.8
+        
+        # ========== EFFETTO PARTICELLE (MOLTO RIDOTTO) ==========
+        # Solo un leggero disturbo durante esplosioni forti
+        if beat_intensity > 0.75:  # Solo beat MOLTO forti
+            # Particelle MINIME - solo un tocco
+            particle_angle = angle + np.sin(distance * 8.0 + frame_time * 3.0) * explosion_intensity * 0.3  # RALLENTATO
+            particle_chaos_x = np.cos(particle_angle) * particle_dispersion * 0.1  # Era 0.3 - ridotto!
+            particle_chaos_y = np.sin(particle_angle) * particle_dispersion * 0.1
+            
+            dimensional_wave_x += particle_chaos_x
+            dimensional_wave_y += particle_chaos_y
+        
+        # ========== ROTAZIONE SOLIDI (RALLENTATA) ==========
+        # Ruota ogni segmento attorno al proprio centro PIÙ LENTAMENTE
+        segment_center_angle = segment_id * segment_angle + segment_angle / 2
+        segment_cx = cx + np.cos(segment_center_angle) * (w * 0.15)
+        segment_cy = cy + np.sin(segment_center_angle) * (h * 0.15)
+        
+        # Coordinate relative al centro del segmento
+        seg_dx = x_coords - segment_cx
+        seg_dy = y_coords - segment_cy
+        seg_distance = np.sqrt(seg_dx**2 + seg_dy**2)
+        seg_angle = np.arctan2(seg_dy, seg_dx)
+        
+        # Rotazione locale del segmento ULTRA LENTA
+        local_rotation = current_rotation * 0.5  # Era 1.0 - ANCORA PIÙ LENTA!
+        rotated_angle = seg_angle + local_rotation
+        
+        # ========== RICOMPOSIZIONE COORDINATE (SEMPLIFICATA) ==========
+        # Applica tutte le trasformazioni
+        new_distance = distance * final_scale
+        
+        # Mix tra rotazione globale e locale - PIÙ GLOBALE (meno caotico)
+        mix_factor = 0.4  # Era 0.6 - meno mix per movimento più fluido
+        final_angle = angle * (1 - mix_factor) + rotated_angle * mix_factor
+        
+        # Converti coordinate polari in cartesiane
+        new_x = cx + new_distance * np.cos(final_angle) * (w / 2)
+        new_y = cy + new_distance * np.sin(final_angle) * (h / 2)
+        
+        # Aggiungi warp dimensionale
+        new_x += dimensional_wave_x * w * 0.1
+        new_y += dimensional_wave_y * h * 0.1
+        
+        # ========== EFFETTO ESPLOSIONE (MOLTO RIDOTTO) ==========
+        if beat_intensity > 0.75:  # Solo beat MOLTO forti
+            # INTERFERENZE MINIME tra solidi
+            interference = np.sin(angle * num_solids + frame_time * 2.5) * beat_intensity * 0.2  # Era 0.5 e 6
+            new_x += np.cos(angle) * interference * w * 0.04  # Era 0.08 - dimezzato!
+            new_y += np.sin(angle) * interference * h * 0.04
+            
+            # ESPLOSIONE RADIALE MINIMA
+            explosion_push = explosion_intensity * distance * 0.15  # Era 0.4 - molto ridotto!
+            new_x += np.cos(angle) * explosion_push * w
+            new_y += np.sin(angle) * explosion_push * h
+        
+        # Clipping e rimapping
+        map_x = np.clip(new_x, 0, w - 1).astype(np.float32)
+        map_y = np.clip(new_y, 0, h - 1).astype(np.float32)
+        
+        result = cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
+        
+        # ========== POST-PROCESSING: EFFETTI SEMPLIFICATI ==========
+        
+        # 1. BORDI LUMINOSI SOTTILI sui solidi
+        if intensity > 0.55:
+            # Identifica bordi tra segmenti - linee SOTTILI e pulite
+            segment_boundary = np.abs(np.sin(angle * num_solids)) < 0.04  # Era 0.08 - PIÙ SOTTILE!
+            edge_brightness = (intensity - 0.55) * 2.0  # Era 3.5 - MOLTO ridotto!
+            
+            # Colori FISSI più sobri (meno psichedelici)
+            edge_color = np.array([200, 150, 255])  # Viola/blu fisso - meno caotico
+            
+            # Applica glow DELICATO sui bordi
+            for i in range(3):
+                result[:, :, i] = np.where(
+                    segment_boundary,
+                    np.clip(result[:, :, i] + edge_brightness * edge_color[i], 0, 255),
+                    result[:, :, i]
+                )
+        
+        # 2. FLASH DELICATO sui beat forti (MOLTO ridotto)
+        if beat_intensity > 0.8:  # Solo beat FORTISSIMI
+            # Flash MINIMO dal centro
+            flash_mask = np.exp(-distance * 3.0) * explosion_intensity * 0.2  # Era 2.0 e 0.6 - molto ridotto!
+            flash_mask = flash_mask[:, :, np.newaxis]
+            
+            # Colore fisso bianco/blu invece di ciclico
+            flash_color = np.array([180, 200, 255])  # Blu chiaro fisso
+            
+            # Applica flash LEGGERO
+            result = result.astype(np.float32)
+            result += flash_mask * flash_color * beat_intensity * 0.5  # Ridotto al 50%
+            result = np.clip(result, 0, 255).astype(np.uint8)
+        
+        return result.astype(np.uint8)
 
     # ------------------------------ Logo overlay --------------------------- #
     def _prepare_logo(self, frame_w: int, frame_h: int) -> None:
@@ -1492,6 +1690,50 @@ class AudioVisualFX:
                 # VHS distortion casuale
                 if np.random.random() < treble[i] * 0.3:
                     frame = self._vhs_distortion(frame, treble[i])
+            
+            elif self.effect_style == "3d_solids":
+                # ========== 3D ROTATING SOLIDS: SOLIDI GEOMETRICI TRIDIMENSIONALI ==========
+                
+                # EFFETTO PRINCIPALE: 3D Rotating Solids
+                frame = self._rotating_3d_solids(
+                    frame,
+                    intensity=total_intensity * 0.85,
+                    frame_time=current_time,
+                    beat_intensity=beat_intensity,
+                    bass=bass[i],
+                    mid=mid[i],
+                    treble=treble[i]
+                )
+                
+                # Effetti complementari che enfatizzano il 3D
+                
+                # Aberrazione cromatica per profondità
+                frame = self._chromatic_aberration(frame, treble[i] * 0.9)
+                
+                # Zoom leggero per enfasi prospettiva
+                if bass[i] > 0.5:
+                    frame = self._zoom_pulse(frame, bass[i] * 0.4)
+                
+                # Color pulse per vividezza
+                frame = self._color_pulse(frame, bass[i] * 1.1, mid[i] * 1.0, treble[i] * 0.9, beat_intensity)
+                
+                # Geometric distortion complementare sui mid alti
+                if mid[i] > 0.6:
+                    frame = self._geometric_distortion(frame, mid[i] * 0.5, 'swirl')
+                
+                # Glitch leggero per texture techno
+                if np.random.random() < 0.15:
+                    glitch_intensity = (bass[i] + treble[i]) * 0.3
+                    frame = self._glitch(frame, glitch_intensity)
+                
+                # Bordi elettrici sui beat forti
+                if beat_intensity > 0.7:
+                    current_color = self.dark_colors[color_index]
+                    frame = self._electric_arcs(frame, beat_intensity * 0.6, current_color)
+                
+                # Strobe moderato
+                frame = self._strobe(frame, total_intensity * 0.75, color_index)
+            
             else:
                 # ========== STANDARD: EFFETTI CLASSICI ==========
                 frame = self._color_pulse(frame, bass[i], mid[i], treble[i], beat_intensity)

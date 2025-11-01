@@ -385,7 +385,8 @@ def get_preset_config(preset_name: str) -> dict:
     
     Args:
         preset_name: Nome del preset ('dark_techno', 'cyberpunk', 'industrial', 'acid_house', 
-                     'extreme_vibrant', 'psychedelic_refraction', 'intelligent_adaptive', 'intelligent_adaptive_pro')
+                     'extreme_vibrant', 'psychedelic_refraction', 'intelligent_adaptive', 
+                     'intelligent_adaptive_pro', '3d_solids')
         
     Returns:
         Dizionario con la configurazione
@@ -399,6 +400,8 @@ def get_preset_config(preset_name: str) -> dict:
         'psychedelic_refraction': PSYCHEDELIC_REFRACTION_CONFIG,
         'intelligent_adaptive': INTELLIGENT_ADAPTIVE_CONFIG,
         'intelligent_adaptive_pro': INTELLIGENT_ADAPTIVE_PRO_CONFIG,
+        '3d_solids': ROTATING_3D_SOLIDS_CONFIG,
+        'rotating_3d_solids': ROTATING_3D_SOLIDS_CONFIG,
     }
     
     return presets.get(preset_name.lower(), DARK_TECHNO_CONFIG)
@@ -491,3 +494,121 @@ HORROR_CONFIG = create_custom_config(
     mid_threshold=0.3,
     high_threshold=0.2
 )
+
+ROTATING_3D_SOLIDS_CONFIG = {
+    'name': '3D Rotating Solids',
+    'colors': [
+        (1.0, 0.0, 1.0),    # Magenta elettrico
+        (0.0, 1.0, 1.0),    # Cyan brillante
+        (1.0, 0.5, 0.0),    # Arancione neon
+        (0.5, 0.0, 1.0),    # Viola profondo
+        (0.0, 1.0, 0.5),    # Verde lime
+        (1.0, 0.0, 0.5),    # Rosa shock
+        (0.5, 1.0, 0.0),    # Giallo-verde
+        (0.0, 0.5, 1.0),    # Blu elettrico
+    ],
+    'thresholds': {
+        'bass': 0.20,        # Sensibile per pulsazioni
+        'mid': 0.15,         # Controllo rotazione
+        'high': 0.12         # Frammentazione dinamica
+    },
+    'effects': {
+        'strobe_intensity': 0.75,
+        'distortion_threshold': 0.30,
+        'noise_level': 0.10,
+        'flash_duration': 0.02,
+        
+        # ===== PARAMETRI SPECIFICI 3D SOLIDS =====
+        '3d_solids_enabled': True,
+        '3d_solids_intensity': 0.85,            # Intensità globale effetto
+        
+        # Rotazione
+        'rotation_speed_base': 2.0,             # Velocità base rotazione
+        'rotation_speed_mid_multiplier': 4.0,   # Boost da mid frequencies
+        'rotation_dual_axis': True,             # Rotazione su assi multipli
+        
+        # Pulsazione (sui bassi)
+        'pulse_enabled': True,
+        'pulse_amount_base': 0.1,
+        'pulse_amount_bass_multiplier': 0.4,
+        'pulse_frequency': 8.0,                 # Hz della pulsazione
+        
+        # Frammentazione (numero di solidi)
+        'num_solids_base': 3,                   # Minimo numero solidi
+        'num_solids_treble_multiplier': 5,     # Solidi aggiunti dal treble
+        'num_solids_max': 12,                   # Massimo numero solidi
+        
+        # Collisioni (sui beat)
+        'collision_enabled': True,
+        'collision_threshold': 0.6,             # Soglia beat per collisioni
+        'collision_intensity': 0.5,             # Intensità esplosione
+        'collision_interference': True,         # Interferenze tra solidi
+        
+        # Proiezione 3D
+        'perspective_enabled': True,
+        'depth_variation': 0.7,                 # Variazione profondità (0-1)
+        'perspective_scale_min': 0.7,           # Scala minima prospettiva
+        'perspective_scale_max': 1.0,           # Scala massima prospettiva
+        
+        # Distorsione dimensionale
+        'dimensional_warp_enabled': True,
+        'warp_intensity_multiplier': 2.0,
+        'warp_frequency_x': 0.05,
+        'warp_frequency_y': 0.04,
+        
+        # Bordi luminosi
+        'edge_glow_enabled': True,
+        'edge_glow_threshold': 0.6,             # Intensità minima per glow
+        'edge_glow_brightness': 2.5,
+        'edge_glow_treble_reactive': True,      # Colore bordi cambia con treble
+        
+        # Combinazioni con altri effetti
+        'combine_with_chromatic': True,         # Aberrazione cromatica
+        'chromatic_intensity': 0.9,
+        'combine_with_color_pulse': True,       # Color pulse
+        'color_pulse_intensity': 1.1,
+        'combine_with_zoom': True,              # Zoom pulse leggero
+        'zoom_intensity': 0.4,
+        'combine_with_glitch': True,            # Glitch occasionale
+        'glitch_probability': 0.15,
+        
+        # Effetti elettrici sui beat
+        'electric_arcs_on_beat': True,
+        'electric_arcs_threshold': 0.7,
+        'electric_arcs_intensity': 0.6,
+        
+        # Mappatura sezioni musicali (per modalità intelligente)
+        'section_mapping': {
+            'intro': {
+                'intensity': 0.4,
+                'rotation_speed': 0.6,
+                'num_solids': 3,
+                'pulse_amount': 0.5,
+            },
+            'buildup': {
+                'intensity': 0.7,
+                'rotation_speed': 1.0,
+                'num_solids': 5,
+                'pulse_amount': 0.8,
+            },
+            'drop': {
+                'intensity': 0.95,
+                'rotation_speed': 1.3,
+                'num_solids': 8,
+                'pulse_amount': 1.0,
+            },
+            'breakdown': {
+                'intensity': 0.5,
+                'rotation_speed': 0.7,
+                'num_solids': 6,
+                'pulse_amount': 0.6,
+            },
+            'outro': {
+                'intensity': 0.3,
+                'rotation_speed': 0.5,
+                'num_solids': 4,
+                'pulse_amount': 0.4,
+            },
+        }
+    }
+}
