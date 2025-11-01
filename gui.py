@@ -26,6 +26,7 @@ class App(tk.Tk):
         self.custom_output_path = tk.StringVar(value="custom_output.mp4")
         self.custom_fps_var = tk.IntVar(value=30)
         self.custom_video_mode = tk.StringVar(value="loop")
+        self.use_video_audio = tk.BooleanVar(value=False)
         
         # Custom effect checkboxes
         self.effect_color_pulse = tk.BooleanVar(value=True)
@@ -135,8 +136,14 @@ class App(tk.Tk):
         
         # Audio
         tk.Label(frame, text="Audio:").grid(row=2, column=0, sticky="e", **pad)
-        tk.Entry(frame, textvariable=self.custom_audio_path, width=45).grid(row=2, column=1, **pad)
-        tk.Button(frame, text="Sfoglia", command=lambda: self._browse_custom_audio()).grid(row=2, column=2, **pad)
+        self.custom_audio_entry = tk.Entry(frame, textvariable=self.custom_audio_path, width=45)
+        self.custom_audio_entry.grid(row=2, column=1, **pad)
+        self.custom_audio_btn = tk.Button(frame, text="Sfoglia", command=lambda: self._browse_custom_audio())
+        self.custom_audio_btn.grid(row=2, column=2, **pad)
+        self.use_video_audio_check = tk.Checkbutton(frame, text="Usa audio del video", 
+                                                     variable=self.use_video_audio,
+                                                     command=self._toggle_video_audio)
+        self.use_video_audio_check.grid(row=2, column=3, sticky="w", **pad)
         
         # Image (shown only in image mode)
         self.custom_image_label = tk.Label(frame, text="Immagine:")
@@ -272,6 +279,20 @@ class App(tk.Tk):
         if path:
             self.custom_video_path.set(path)
     
+    def _toggle_video_audio(self) -> None:
+        """Toggle audio input controls based on use_video_audio checkbox."""
+        if self.use_video_audio.get():
+            # Disable audio file selection when using video audio
+            self.custom_audio_entry.config(state=tk.DISABLED)
+            self.custom_audio_btn.config(state=tk.DISABLED)
+            self.custom_audio_path.set("(audio dal video)")
+        else:
+            # Enable audio file selection
+            self.custom_audio_entry.config(state=tk.NORMAL)
+            self.custom_audio_btn.config(state=tk.NORMAL)
+            if self.custom_audio_path.get() == "(audio dal video)":
+                self.custom_audio_path.set("")
+    
     def _toggle_custom_mode(self) -> None:
         """Toggle visibility of image/video controls based on selected mode."""
         mode = self.custom_mode.get()
@@ -292,6 +313,11 @@ class App(tk.Tk):
             self.custom_video_btn.grid_forget()
             self.custom_video_mode_label.grid_forget()
             self.custom_video_mode_combo.grid_forget()
+            
+            # Hide "use video audio" checkbox in image mode
+            self.use_video_audio_check.grid_forget()
+            self.use_video_audio.set(False)
+            self._toggle_video_audio()
         else:
             # Hide image controls
             self.custom_image_label.grid_forget()
@@ -307,6 +333,9 @@ class App(tk.Tk):
             self.custom_video_btn.grid(row=3, column=2, **pad)
             self.custom_video_mode_label.grid(row=5, column=0, sticky="e", **pad)
             self.custom_video_mode_combo.grid(row=5, column=1, sticky="w", **pad)
+            
+            # Show "use video audio" checkbox in video mode
+            self.use_video_audio_check.grid(row=2, column=3, sticky="w", **pad)
     
     def _choose_custom_output(self) -> None:
         path = filedialog.asksaveasfilename(
@@ -323,10 +352,16 @@ class App(tk.Tk):
         audio = self.custom_audio_path.get().strip()
         output = self.custom_output_path.get().strip()
         mode = self.custom_mode.get()
+        use_video_audio = self.use_video_audio.get()
         
-        if not audio or not os.path.exists(audio):
-            messagebox.showerror("Errore", "Seleziona un file audio valido")
-            return
+        # Validate audio input
+        if mode == "video" and use_video_audio:
+            # Will extract audio from video later
+            audio = None
+        else:
+            if not audio or not os.path.exists(audio):
+                messagebox.showerror("Errore", "Seleziona un file audio valido")
+                return
         
         if mode == "image":
             image = self.custom_image_path.get().strip()
@@ -396,6 +431,11 @@ class App(tk.Tk):
                 
                 # Build custom effect list
                 custom_effects = []
+
+                # Preserve original audio path into a local variable used below.
+                # We must not reassign the outer name `audio` inside this worker,
+                # otherwise Python treats it as a local and raises UnboundLocalError.
+                audio_source = audio
                 
                 if self.effect_color_pulse.get():
                     custom_effects.append(ColorPulseEffect(
@@ -509,7 +549,7 @@ class App(tk.Tk):
                     # Analyze audio
                     progress_cb("status", {"message": "Analisi audio..."})
                     audio_analyzer = AudioAnalyzer()
-                    audio_data = audio_analyzer.load_and_analyze(audio, duration=None, fps=fps)
+                    audio_data = audio_analyzer.load_and_analyze(audio_source, duration=None, fps=fps)
                     
                     # Load image
                     progress_cb("status", {"message": "Caricamento immagine..."})
@@ -560,7 +600,7 @@ class App(tk.Tk):
                     # Try ffmpeg first (fastest)
                     try:
                         result = subprocess.run([
-                            'ffmpeg', '-y', '-i', temp_video_avi, '-i', audio,
+                            'ffmpeg', '-y', '-i', temp_video_avi, '-i', audio_source,
                             '-c:v', 'libx264', '-c:a', 'aac', '-shortest', output
                         ], check=True, capture_output=True)
                         os.remove(temp_video_avi)
@@ -576,7 +616,7 @@ class App(tk.Tk):
                             
                             progress_cb("status", {"message": "Aggiunta audio con moviepy..."})
                             video_clip = VideoFileClip(temp_video_avi)
-                            audio_clip = AudioFileClip(audio)
+                            audio_clip = AudioFileClip(audio_source)
                             final_clip = video_clip.with_audio(audio_clip)
                             final_clip.write_videofile(output, codec='libx264', audio_codec='aac', logger=None)
                             video_clip.close()
@@ -619,10 +659,39 @@ class App(tk.Tk):
                         cap.release()
                         raise ValueError("Impossibile leggere il video")
                     
+                    # Extract or use provided audio
+                    if use_video_audio:
+                        # Extract audio from video
+                        progress_cb("status", {"message": "Estrazione audio dal video..."})
+                        temp_audio = tempfile.mktemp(suffix='.wav', dir=os.path.dirname(output))
+                        try:
+                            # Try ffmpeg first
+                            subprocess.run([
+                                'ffmpeg', '-y', '-i', video, '-vn', '-acodec', 'pcm_s16le', 
+                                '-ar', '44100', '-ac', '2', temp_audio
+                            ], check=True, capture_output=True)
+                            audio_source = temp_audio
+                        except (subprocess.CalledProcessError, FileNotFoundError):
+                            # Fallback to moviepy
+                            try:
+                                try:
+                                    from moviepy import VideoFileClip
+                                except ImportError:
+                                    from moviepy.editor import VideoFileClip
+                                
+                                video_clip = VideoFileClip(video)
+                                video_clip.audio.write_audiofile(temp_audio, logger=None)
+                                video_clip.close()
+                                audio_source = temp_audio
+                            except Exception as e:
+                                if os.path.exists(temp_audio):
+                                    os.remove(temp_audio)
+                                raise ValueError(f"Impossibile estrarre audio dal video: {e}")
+                    
                     # Load and analyze audio
                     progress_cb("status", {"message": "Analisi audio..."})
                     audio_analyzer = AudioAnalyzer()
-                    audio_data = audio_analyzer.load_and_analyze(audio, fps=int(video_fps))
+                    audio_data = audio_analyzer.load_and_analyze(audio_source, fps=int(video_fps))
                     audio_duration = len(audio_data.audio_signal) / audio_data.sample_rate
                     
                     # Calculate frame mapping (without loading frames)
@@ -742,7 +811,7 @@ class App(tk.Tk):
                     # Try ffmpeg first (fastest)
                     try:
                         result = subprocess.run([
-                            'ffmpeg', '-y', '-i', temp_video_avi, '-i', audio,
+                            'ffmpeg', '-y', '-i', temp_video_avi, '-i', audio_source,
                             '-c:v', 'libx264', '-c:a', 'aac', '-shortest', output
                         ], check=True, capture_output=True)
                         os.remove(temp_video_avi)
@@ -758,7 +827,7 @@ class App(tk.Tk):
                             
                             progress_cb("status", {"message": "Aggiunta audio con moviepy..."})
                             video_clip = VideoFileClip(temp_video_avi)
-                            audio_clip = AudioFileClip(audio)
+                            audio_clip = AudioFileClip(audio_source)
                             final_clip = video_clip.with_audio(audio_clip)
                             final_clip.write_videofile(output, codec='libx264', audio_codec='aac', logger=None)
                             video_clip.close()
@@ -775,11 +844,24 @@ class App(tk.Tk):
                                 pass
                     
                     progress_cb("done", {"output": output})
+                    
+                    # Clean up temporary audio file if extracted
+                    if use_video_audio and 'temp_audio' in locals() and os.path.exists(temp_audio):
+                        try:
+                            os.remove(temp_audio)
+                        except:
+                            pass
                 
                 self.after(0, lambda: messagebox.showinfo("Completato", f"Video custom creato: {output}"))
             except Exception as e:
                 error_msg = str(e)
                 self.after(0, lambda msg=error_msg: messagebox.showerror("Errore", msg))
+                # Clean up temporary audio file on error
+                if mode == "video" and use_video_audio and 'temp_audio' in locals() and os.path.exists(temp_audio):
+                    try:
+                        os.remove(temp_audio)
+                    except:
+                        pass
             finally:
                 self.after(0, lambda: self.custom_run_btn.config(state=tk.NORMAL))
                 self.after(0, lambda: self.custom_cancel_btn.config(state=tk.DISABLED))
