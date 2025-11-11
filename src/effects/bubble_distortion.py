@@ -61,4 +61,8 @@ class BubbleDistortionEffect(BaseEffect):
         map_x = x_coords + deformation * np.cos(angle)
         map_y = y_coords + deformation * np.sin(angle)
         
+        # Ensure arrays are C-contiguous and of type CV_32FC1 (float32)
+        map_x = np.ascontiguousarray(map_x, dtype=np.float32)
+        map_y = np.ascontiguousarray(map_y, dtype=np.float32)
+        
         return cv2.remap(frame, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)

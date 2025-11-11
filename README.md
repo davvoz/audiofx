@@ -66,6 +66,7 @@ Options:
 - `--output, -o` output video file (default: `dark_techno_fx.mp4`)
 - `--fps` frames per second (default: 30)
 - `--duration, -d` limit output length in seconds
+- `--native-resolution` use the image's native resolution instead of 720x720 (NEW!)
 - Logo overlay
 	- `--logo` path to a logo image (PNG recommended)
 	- `--logo-position` one of `top-left | top-right | bottom-left | bottom-right` (default: `top-right`)
@@ -81,6 +82,9 @@ python audio_visual_fx.py --audio .\music\tec.wav --image .\covers\art.jpg --out
 
 # First 30 seconds only
 python audio_visual_fx.py -a tec.wav -i example_image.jpg -o short.mp4 --fps 30 -d 30
+
+# Use native image resolution (e.g., 1920x1080 instead of default 720x720)
+python audio_visual_fx.py -a tec.wav -i hd_cover.jpg -o hd_video.mp4 --fps 30 --native-resolution
 
 # With a semi‑transparent logo bottom‑right
 python audio_visual_fx.py -a tec.wav -i cover.jpg -o with_logo.mp4 --fps 30 \

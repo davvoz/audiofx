@@ -43,7 +43,7 @@ class AudioVisualFX:
         progress_cb: ProgressCallback = None,
         colors: Optional[List[Tuple[float, float, float]]] = None,
         thresholds: Optional[Tuple[float, float, float]] = None,
-        target_resolution: Tuple[int, int] = (720, 720),
+        target_resolution: Optional[Tuple[int, int]] = (720, 720),
         effect_style: str = "standard",  # "standard" o "extreme"
         # Logo options
         logo_file: Optional[str] = None,
@@ -83,7 +83,7 @@ class AudioVisualFX:
             (0.0, 0.8, 0.3),  # Verde acido
         ]
 
-        self.target_resolution = target_resolution
+        self.target_resolution = target_resolution  # None = use native resolution
         
         # effect style
         self.effect_style = effect_style
@@ -1559,7 +1559,15 @@ class AudioVisualFX:
         if img is None:
             raise FileNotFoundError(f"Impossibile caricare immagine: {self.image_file}")
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, self.target_resolution)
+        
+        # Use native resolution if target_resolution is None
+        if self.target_resolution is not None:
+            img = cv2.resize(img, self.target_resolution)
+        else:
+            # Log native resolution
+            h, w = img.shape[:2]
+            if self.progress_cb:
+                self.progress_cb("status", {"message": f"Usando risoluzione nativa: {w}x{h}"})
 
         frames: List[np.ndarray] = []
         num_frames = len(bass)

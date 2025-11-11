@@ -16,6 +16,8 @@ def main() -> None:
     parser.add_argument("--output", "-o", default="dark_techno_fx.mp4", help="File video output")
     parser.add_argument("--fps", type=int, default=30, help="Frame per secondo")
     parser.add_argument("--duration", "-d", type=float, help="Durata del video in secondi")
+    parser.add_argument("--native-resolution", action="store_true", 
+                       help="Usa le dimensioni native dell'immagine (default: 720x720)")
     # Logo options
     parser.add_argument("--logo", help="File immagine logo da sovrapporre (PNG consigliato)")
     parser.add_argument(
@@ -49,12 +51,16 @@ def main() -> None:
         elif event == "done":
             print(f"Video creato: {payload.get('output')}")
 
+    # Set target resolution based on flag
+    target_res = None if args.native_resolution else (720, 720)
+
     fx = AudioVisualFX(
         audio_file=args.audio,
         image_file=args.image,
         output_file=args.output,
         fps=args.fps,
         duration=args.duration,
+        target_resolution=target_res,
         progress_cb=_progress,
         logo_file=args.logo,
         logo_position=args.logo_position,

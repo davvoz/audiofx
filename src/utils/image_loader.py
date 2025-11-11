@@ -2,7 +2,7 @@
 Image loading and preprocessing utilities.
 """
 
-from typing import Tuple
+from typing import Tuple, Optional
 import cv2
 import numpy as np
 
@@ -13,14 +13,15 @@ class ImageLoader:
     @staticmethod
     def load_and_prepare(
         image_file: str,
-        target_resolution: Tuple[int, int] = (720, 720)
+        target_resolution: Optional[Tuple[int, int]] = (720, 720)
     ) -> np.ndarray:
         """
         Load and prepare base image.
         
         Args:
             image_file: Path to image file
-            target_resolution: Target resolution (width, height)
+            target_resolution: Target resolution (width, height). 
+                             If None, uses native image resolution.
             
         Returns:
             Processed image array (RGB)
@@ -32,7 +33,11 @@ class ImageLoader:
         if img is None:
             raise FileNotFoundError(f"Image not found: {image_file}")
         
-        # Convert BGR to RGB and resize
+        # Convert BGR to RGB
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, target_resolution)
+        
+        # Resize only if target_resolution is specified
+        if target_resolution is not None:
+            img = cv2.resize(img, target_resolution)
+        
         return img

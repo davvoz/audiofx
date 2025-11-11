@@ -33,7 +33,7 @@ class AudioVisualGenerator:
         duration: Optional[float] = None,
         effect_config: Optional[EffectConfig] = None,
         effect_style: EffectStyle = EffectStyle.STANDARD,
-        target_resolution: Tuple[int, int] = (720, 720),
+        target_resolution: Optional[Tuple[int, int]] = (720, 720),
         progress_cb: ProgressCallback = None
     ):
         """
@@ -47,7 +47,8 @@ class AudioVisualGenerator:
             duration: Optional duration limit
             effect_config: Optional effect configuration
             effect_style: Effect style preset
-            target_resolution: Target video resolution (width, height)
+            target_resolution: Target video resolution (width, height).
+                             If None, uses native image resolution.
             progress_cb: Optional progress callback function
         """
         self.audio_file = audio_file

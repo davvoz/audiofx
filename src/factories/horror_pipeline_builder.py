@@ -5,6 +5,7 @@ Horror effect pipeline builder.
 from ..effects.effect_pipeline import EffectPipeline
 from ..effects.color_pulse import ColorPulseEffect
 from ..effects.strobe import StrobeEffect
+from ..effects.strobe_negative import StrobeNegativeEffect
 from ..effects.glitch import GlitchEffect
 from ..effects.screen_shake import ScreenShakeEffect
 from ..effects.rgb_split import RGBSplitEffect
@@ -47,6 +48,7 @@ class HorrorPipelineBuilder:
             intensity=1.1
         ))
         pipeline.add_effect(StrobeEffect(colors=config.colors, threshold=0.5, intensity=1.3))  # Lowered threshold, increased intensity
-        # Focus su effetti disturbanti: split, glitch, shake
+        pipeline.add_effect(StrobeNegativeEffect(threshold=0.6, intensity=1.2))  # Negative strobe for disturbing effect
+        # Focus su effetti disturbanti: split, glitch, shake, negative strobe
         
         return pipeline

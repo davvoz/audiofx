@@ -152,6 +152,10 @@ class DimensionalWarpEffect(BaseEffect):
         map_x = cx + (dx * warp_factor)
         map_y = cy + (dy * warp_factor)
         
+        # Ensure arrays are C-contiguous and of type CV_32FC1 (float32)
+        map_x = np.ascontiguousarray(map_x, dtype=np.float32)
+        map_y = np.ascontiguousarray(map_y, dtype=np.float32)
+        
         return cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC, 
                         borderMode=cv2.BORDER_REFLECT_101)
     
@@ -202,6 +206,10 @@ class DimensionalWarpEffect(BaseEffect):
             map_x = x_coords + wave * np.cos(angle)
             map_y = y_coords + wave * np.sin(angle)
         
+        # Ensure arrays are C-contiguous and of type CV_32FC1 (float32)
+        map_x = np.ascontiguousarray(map_x, dtype=np.float32)
+        map_y = np.ascontiguousarray(map_y, dtype=np.float32)
+        
         return cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC,
                         borderMode=cv2.BORDER_REFLECT_101)
     
@@ -248,6 +256,10 @@ class DimensionalWarpEffect(BaseEffect):
         map_x = cx + radius_warp * max_dist * np.cos(angle_warp)
         map_y = cy + radius_warp * max_dist * np.sin(angle_warp)
         
+        # Ensure arrays are C-contiguous and of type CV_32FC1 (float32)
+        map_x = np.ascontiguousarray(map_x, dtype=np.float32)
+        map_y = np.ascontiguousarray(map_y, dtype=np.float32)
+        
         return cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC,
                         borderMode=cv2.BORDER_REFLECT_101)
     
@@ -288,6 +300,10 @@ class DimensionalWarpEffect(BaseEffect):
             map_x += warp_factor * np.cos(angle) * distance * 0.1
             map_y += warp_factor * np.sin(angle) * distance * 0.1
         
+        # Ensure arrays are C-contiguous and of type CV_32FC1 (float32)
+        map_x = np.ascontiguousarray(map_x, dtype=np.float32)
+        map_y = np.ascontiguousarray(map_y, dtype=np.float32)
+        
         return cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC,
                         borderMode=cv2.BORDER_REFLECT_101)
     
@@ -318,6 +334,10 @@ class DimensionalWarpEffect(BaseEffect):
         
         map_x = cx + dx * zoom_factor
         map_y = cy + dy * zoom_factor
+        
+        # Ensure arrays are C-contiguous and of type CV_32FC1 (float32)
+        map_x = np.ascontiguousarray(map_x, dtype=np.float32)
+        map_y = np.ascontiguousarray(map_y, dtype=np.float32)
         
         return cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC,
                         borderMode=cv2.BORDER_REFLECT_101)

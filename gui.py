@@ -15,7 +15,7 @@ class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Audio Visual FX Generator")
-        self.geometry("900x700")
+        self.geometry("900x800")
         self.resizable(True, True)  # Finestra ridimensionabile
 
     # Custom Preset Controls
@@ -27,11 +27,13 @@ class App(tk.Tk):
         self.custom_fps_var = tk.IntVar(value=30)
         self.custom_video_mode = tk.StringVar(value="loop")
         self.use_video_audio = tk.BooleanVar(value=False)
+        self.use_native_resolution = tk.BooleanVar(value=True)  # NEW: use native resolution by default
         
         # Custom effect checkboxes
         self.effect_color_pulse = tk.BooleanVar(value=True)
         self.effect_zoom_pulse = tk.BooleanVar(value=True)
         self.effect_strobe = tk.BooleanVar(value=False)
+        self.effect_strobe_negative = tk.BooleanVar(value=False)
         self.effect_glitch = tk.BooleanVar(value=False)
         self.effect_chromatic = tk.BooleanVar(value=False)
         self.effect_bubble = tk.BooleanVar(value=False)
@@ -41,11 +43,13 @@ class App(tk.Tk):
         self.effect_fashion_lightning = tk.BooleanVar(value=False)
         self.effect_advanced_glitch = tk.BooleanVar(value=False)
         self.effect_dimensional_warp = tk.BooleanVar(value=False)
+        self.effect_vortex_distortion = tk.BooleanVar(value=False)
         
         # Custom effect intensities
         self.intensity_color_pulse = tk.DoubleVar(value=1.0)
         self.intensity_zoom_pulse = tk.DoubleVar(value=1.0)
         self.intensity_strobe = tk.DoubleVar(value=1.0)
+        self.intensity_strobe_negative = tk.DoubleVar(value=1.0)
         self.intensity_glitch = tk.DoubleVar(value=1.0)
         self.intensity_chromatic = tk.DoubleVar(value=1.0)
         self.intensity_bubble = tk.DoubleVar(value=1.0)
@@ -55,11 +59,19 @@ class App(tk.Tk):
         self.intensity_fashion_lightning = tk.DoubleVar(value=1.0)
         self.intensity_advanced_glitch = tk.DoubleVar(value=1.0)
         self.intensity_dimensional_warp = tk.DoubleVar(value=1.0)
+        self.intensity_vortex_distortion = tk.DoubleVar(value=1.0)
         
         # Custom thresholds
         self.threshold_bass = tk.DoubleVar(value=0.3)
         self.threshold_mid = tk.DoubleVar(value=0.2)
         self.threshold_high = tk.DoubleVar(value=0.15)
+        
+        # Logo overlay settings
+        self.logo_path = tk.StringVar()
+        self.logo_position = tk.StringVar(value="top-right")
+        self.logo_scale = tk.DoubleVar(value=0.15)
+        self.logo_opacity = tk.DoubleVar(value=1.0)
+        self.logo_margin = tk.IntVar(value=12)
 
         self._build_ui()
         self._worker = None  # type: ignore[assignment]
@@ -174,6 +186,10 @@ class App(tk.Tk):
         tk.Entry(frame, textvariable=self.custom_output_path, width=45).grid(row=4, column=1, **pad)
         tk.Button(frame, text="Scegli", command=lambda: self._choose_custom_output()).grid(row=4, column=2, **pad)
         
+        # Native resolution checkbox
+        tk.Checkbutton(frame, text="Usa dimensioni native dell'immagine/video", 
+                      variable=self.use_native_resolution).grid(row=4, column=3, sticky="w", **pad)
+        
         # FPS (not shown in video mode as we use video FPS)
         self.custom_fps_label = tk.Label(frame, text="FPS:")
         self.custom_fps_label.grid(row=5, column=0, sticky="e", **pad)
@@ -206,20 +222,57 @@ class App(tk.Tk):
         sep2 = ttk.Separator(frame, orient="horizontal")
         sep2.grid(row=10, column=0, columnspan=4, sticky="ew", padx=10, pady=(8, 2))
         
+        # Logo overlay section
+        tk.Label(frame, text="Logo Overlay (opzionale):", font=("Arial", 9, "bold")).grid(
+            row=11, column=0, sticky="w", **pad
+        )
+        
+        tk.Label(frame, text="Logo:").grid(row=12, column=0, sticky="e", **pad)
+        tk.Entry(frame, textvariable=self.logo_path, width=35).grid(row=12, column=1, **pad)
+        tk.Button(frame, text="Sfoglia", command=self._browse_logo).grid(row=12, column=2, **pad)
+        
+        tk.Label(frame, text="Posizione:").grid(row=13, column=0, sticky="e", **pad)
+        logo_pos_combo = ttk.Combobox(
+            frame,
+            textvariable=self.logo_position,
+            values=["top-left", "top-right", "bottom-left", "bottom-right", "center"],
+            state="readonly",
+            width=12
+        )
+        logo_pos_combo.grid(row=13, column=1, sticky="w", **pad)
+        
+        tk.Label(frame, text="Scala:").grid(row=13, column=2, sticky="e", padx=(20,5))
+        tk.Scale(frame, variable=self.logo_scale, from_=0.05, to=0.5, resolution=0.05,
+                orient="horizontal", length=100).grid(row=13, column=3, sticky="w", **pad)
+        
+        tk.Label(frame, text="Opacità:").grid(row=14, column=0, sticky="e", **pad)
+        tk.Scale(frame, variable=self.logo_opacity, from_=0.0, to=1.0, resolution=0.1,
+                orient="horizontal", length=150).grid(row=14, column=1, sticky="w", **pad)
+        
+        tk.Label(frame, text="Margine:").grid(row=14, column=2, sticky="e", padx=(20,5))
+        tk.Spinbox(frame, from_=0, to=100, textvariable=self.logo_margin, width=10).grid(
+            row=14, column=3, sticky="w", **pad
+        )
+        
+        # Separator
+        sep3 = ttk.Separator(frame, orient="horizontal")
+        sep3.grid(row=15, column=0, columnspan=4, sticky="ew", padx=10, pady=(8, 2))
+        
         # Effects section
         tk.Label(frame, text="Effetti (seleziona e imposta intensità):", font=("Arial", 9, "bold")).grid(
-            row=11, column=0, columnspan=2, sticky="w", **pad
+            row=16, column=0, columnspan=2, sticky="w", **pad
         )
         
         # Create scrollable frame for effects
         effects_frame = tk.Frame(frame)
-        effects_frame.grid(row=12, column=0, columnspan=4, sticky="ew", **pad)
+        effects_frame.grid(row=17, column=0, columnspan=4, sticky="ew", **pad)
         
         # Effect checkboxes with intensity sliders
         effects = [
             ("ColorPulse", self.effect_color_pulse, self.intensity_color_pulse),
             ("ZoomPulse", self.effect_zoom_pulse, self.intensity_zoom_pulse),
             ("Strobe", self.effect_strobe, self.intensity_strobe),
+            ("StrobeNegative", self.effect_strobe_negative, self.intensity_strobe_negative),
             ("Glitch", self.effect_glitch, self.intensity_glitch),
             ("ChromaticAberration", self.effect_chromatic, self.intensity_chromatic),
             ("BubbleDistortion", self.effect_bubble, self.intensity_bubble),
@@ -229,6 +282,7 @@ class App(tk.Tk):
             ("FashionLightning", self.effect_fashion_lightning, self.intensity_fashion_lightning),
             ("AdvancedGlitch", self.effect_advanced_glitch, self.intensity_advanced_glitch),
             ("DimensionalWarp", self.effect_dimensional_warp, self.intensity_dimensional_warp),
+            ("VortexDistortion", self.effect_vortex_distortion, self.intensity_vortex_distortion),
         ]
         
         for idx, (name, var, intensity_var) in enumerate(effects):
@@ -245,15 +299,15 @@ class App(tk.Tk):
         
         # Progress
         self.custom_progress = ttk.Progressbar(frame, mode="determinate", length=620)
-        self.custom_progress.grid(row=13, column=0, columnspan=4, **pad)
+        self.custom_progress.grid(row=18, column=0, columnspan=4, **pad)
         self.custom_status_lbl = tk.Label(frame, text="Pronto")
-        self.custom_status_lbl.grid(row=14, column=0, columnspan=4, sticky="w", **pad)
+        self.custom_status_lbl.grid(row=19, column=0, columnspan=4, sticky="w", **pad)
         
         # Actions
         self.custom_run_btn = tk.Button(frame, text="Genera Video Custom", command=self.on_custom_run)
-        self.custom_run_btn.grid(row=15, column=2, sticky="e", **pad)
+        self.custom_run_btn.grid(row=20, column=2, sticky="e", **pad)
         self.custom_cancel_btn = tk.Button(frame, text="Annulla", command=self.on_cancel, state=tk.DISABLED)
-        self.custom_cancel_btn.grid(row=15, column=3, sticky="w", **pad)
+        self.custom_cancel_btn.grid(row=20, column=3, sticky="w", **pad)
     
     def _browse_custom_audio(self) -> None:
         path = filedialog.askopenfilename(
@@ -278,6 +332,14 @@ class App(tk.Tk):
         )
         if path:
             self.custom_video_path.set(path)
+    
+    def _browse_logo(self) -> None:
+        path = filedialog.askopenfilename(
+            title="Seleziona logo",
+            filetypes=[("Immagini", "*.png *.jpg *.jpeg"), ("Tutti i file", "*.*")],
+        )
+        if path:
+            self.logo_path.set(path)
     
     def _toggle_video_audio(self) -> None:
         """Toggle audio input controls based on use_video_audio checkbox."""
@@ -385,6 +447,7 @@ class App(tk.Tk):
             self.effect_color_pulse.get(),
             self.effect_zoom_pulse.get(),
             self.effect_strobe.get(),
+            self.effect_strobe_negative.get(),
             self.effect_glitch.get(),
             self.effect_chromatic.get(),
             self.effect_bubble.get(),
@@ -394,6 +457,7 @@ class App(tk.Tk):
             self.effect_fashion_lightning.get(),
             self.effect_advanced_glitch.get(),
             self.effect_dimensional_warp.get(),
+            self.effect_vortex_distortion.get(),
         ]):
             messagebox.showerror("Errore", "Seleziona almeno un effetto")
             return
@@ -423,9 +487,10 @@ class App(tk.Tk):
             try:
                 # Import effects
                 from src.effects import (
-                    ColorPulseEffect, ZoomPulseEffect, StrobeEffect, GlitchEffect,
+                    ColorPulseEffect, ZoomPulseEffect, StrobeEffect, StrobeNegativeEffect, GlitchEffect,
                     ChromaticAberrationEffect, BubbleDistortionEffect, ScreenShakeEffect, RGBSplitEffect,
-                    ElectricArcsEffect, FashionLightningEffect, AdvancedGlitchEffect, DimensionalWarpEffect
+                    ElectricArcsEffect, FashionLightningEffect, AdvancedGlitchEffect, DimensionalWarpEffect,
+                    VortexDistortionEffect
                 )
                 from src.factories import EffectFactory
                 
@@ -458,6 +523,12 @@ class App(tk.Tk):
                         colors=default_colors,
                         threshold=0.8,
                         intensity=self.intensity_strobe.get()
+                    ))
+                
+                if self.effect_strobe_negative.get():
+                    custom_effects.append(StrobeNegativeEffect(
+                        threshold=0.8,
+                        intensity=self.intensity_strobe_negative.get()
                     ))
                 
                 if self.effect_glitch.get():
@@ -532,6 +603,16 @@ class App(tk.Tk):
                         intensity=self.intensity_dimensional_warp.get()
                     ))
                 
+                if self.effect_vortex_distortion.get():
+                    custom_effects.append(VortexDistortionEffect(
+                        threshold=0.2,
+                        max_angle=35.0,
+                        radius_falloff=1.8,
+                        rotation_speed=3.0,
+                        smoothing=0.3,
+                        intensity=self.intensity_vortex_distortion.get()
+                    ))
+                
                 # Create custom pipeline
                 custom_pipeline = EffectFactory.create_custom_pipeline(custom_effects)
                 
@@ -540,6 +621,7 @@ class App(tk.Tk):
                     from src.core.audio_analyzer import AudioAnalyzer
                     from src.core.frame_generator import FrameGenerator
                     from src.utils.image_loader import ImageLoader
+                    from src.utils.logo_overlay import load_logo, apply_logo_to_frame
                     import cv2
                     import subprocess
                     import os
@@ -551,10 +633,12 @@ class App(tk.Tk):
                     audio_analyzer = AudioAnalyzer()
                     audio_data = audio_analyzer.load_and_analyze(audio_source, duration=None, fps=fps)
                     
-                    # Load image
+                    # Load image - use native resolution if checkbox is selected
                     progress_cb("status", {"message": "Caricamento immagine..."})
-                    base_image = ImageLoader.load_and_prepare(image, (720, 720))
+                    target_res = None if self.use_native_resolution.get() else (720, 720)
+                    base_image = ImageLoader.load_and_prepare(image, target_resolution=target_res)
                     height, width = base_image.shape[:2]
+                    progress_cb("status", {"message": f"Risoluzione immagine: {width}x{height}"})
                     
                     # Create frame generator with custom pipeline
                     progress_cb("status", {"message": "Setup effetti custom..."})
@@ -568,6 +652,21 @@ class App(tk.Tk):
                     num_frames = len(audio_data.bass_energy)
                     progress_cb("start", {"total_frames": num_frames})
                     progress_cb("status", {"message": "Processing con streaming..."})
+                    
+                    # Load logo if provided
+                    logo_img = None
+                    logo_pos = self.logo_position.get()
+                    logo_sc = self.logo_scale.get()
+                    logo_op = self.logo_opacity.get()
+                    logo_mg = self.logo_margin.get()
+                    
+                    logo_path_str = self.logo_path.get().strip()
+                    if logo_path_str and os.path.exists(logo_path_str):
+                        try:
+                            logo_img = load_logo(logo_path_str)
+                            progress_cb("status", {"message": f"Logo caricato: {os.path.basename(logo_path_str)}"})
+                        except Exception as e:
+                            progress_cb("status", {"message": f"Errore caricamento logo: {e}"})
                     
                     # Write directly to temporary video file (use AVI for temp, then convert)
                     import tempfile
@@ -583,6 +682,10 @@ class App(tk.Tk):
                             audio_analysis=audio_data,
                             color_index=idx % 6
                         )
+                        
+                        # Apply logo if available
+                        if logo_img is not None:
+                            frame = apply_logo_to_frame(frame, logo_img, logo_pos, logo_sc, logo_op, logo_mg)
                         
                         # Write directly (convert RGB to BGR for cv2)
                         writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
@@ -642,6 +745,7 @@ class App(tk.Tk):
                     from src.core.audio_analyzer import AudioAnalyzer
                     from src.core.frame_generator import FrameGenerator
                     from src.core.video_exporter import VideoExporter
+                    from src.utils.logo_overlay import load_logo, apply_logo_to_frame
                     import subprocess
                     import os
                     import tempfile
@@ -719,6 +823,21 @@ class App(tk.Tk):
                     progress_cb("start", {"total_frames": total_frames})
                     progress_cb("status", {"message": "Processing video con streaming..."})
                     
+                    # Load logo if provided
+                    logo_img = None
+                    logo_pos = self.logo_position.get()
+                    logo_sc = self.logo_scale.get()
+                    logo_op = self.logo_opacity.get()
+                    logo_mg = self.logo_margin.get()
+                    
+                    logo_path_str = self.logo_path.get().strip()
+                    if logo_path_str and os.path.exists(logo_path_str):
+                        try:
+                            logo_img = load_logo(logo_path_str)
+                            progress_cb("status", {"message": f"Logo caricato: {os.path.basename(logo_path_str)}"})
+                        except Exception as e:
+                            progress_cb("status", {"message": f"Errore caricamento logo: {e}"})
+                    
                     # Initialize video writer for direct streaming (use AVI temp)
                     temp_video_avi = tempfile.mktemp(suffix='_temp.avi', dir=os.path.dirname(output))
                     fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -790,6 +909,10 @@ class App(tk.Tk):
                         
                         # Apply custom pipeline effects
                         frame_with_effects = custom_pipeline.apply(frame_context)
+                        
+                        # Apply logo if available
+                        if logo_img is not None:
+                            frame_with_effects = apply_logo_to_frame(frame_with_effects, logo_img, logo_pos, logo_sc, logo_op, logo_mg)
                         
                         # Write directly to video (convert back to BGR)
                         writer.write(cv2.cvtColor(frame_with_effects, cv2.COLOR_RGB2BGR))

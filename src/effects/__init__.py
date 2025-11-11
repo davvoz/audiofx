@@ -8,6 +8,7 @@ from .effect_pipeline import EffectPipeline
 # Concrete effects
 from .color_pulse import ColorPulseEffect
 from .strobe import StrobeEffect
+from .strobe_negative import StrobeNegativeEffect
 from .zoom_pulse import ZoomPulseEffect
 from .chromatic_aberration import ChromaticAberrationEffect
 from .glitch import GlitchEffect
@@ -18,6 +19,7 @@ from .electric_arcs import ElectricArcsEffect
 from .fashion_lightning import FashionLightningEffect
 from .advanced_glitch import AdvancedGlitchEffect
 from .dimensional_warp import DimensionalWarpEffect
+from .vortex_distortion import VortexDistortionEffect
 
 __all__ = [
     # Base classes
@@ -26,6 +28,7 @@ __all__ = [
     # Concrete effects
     'ColorPulseEffect',
     'StrobeEffect',
+    'StrobeNegativeEffect',
     'ZoomPulseEffect',
     'ChromaticAberrationEffect',
     'GlitchEffect',
@@ -36,4 +39,5 @@ __all__ = [
     'FashionLightningEffect',
     'AdvancedGlitchEffect',
     'DimensionalWarpEffect',
+    'VortexDistortionEffect',
 ]
