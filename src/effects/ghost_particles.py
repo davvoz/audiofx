@@ -22,6 +22,17 @@ class ParticleType(Enum):
     SMOKE = "smoke"
 
 
+class GeometricShape(Enum):
+    """Enumeration of geometric shapes for particles."""
+    TRIANGLE = "triangle"
+    SQUARE = "square"
+    PENTAGON = "pentagon"
+    HEXAGON = "hexagon"
+    STAR = "star"
+    DIAMOND = "diamond"
+    OCTAGON = "octagon"
+
+
 class ParticlePhysics:
     """Handles particle physics calculations (Single Responsibility)."""
     
@@ -135,35 +146,107 @@ class ParticleMovementFactory:
         return cls._STRATEGIES.get(particle_type, cls._STRATEGIES[ParticleType.NORMAL])
 
 
+class ShapeRenderer:
+    """Utility class for rendering geometric shapes."""
+    
+    @staticmethod
+    def get_polygon_points(x: int, y: int, size: int, num_sides: int, rotation: float = 0) -> np.ndarray:
+        """Generate points for a regular polygon."""
+        angles = np.linspace(0, 2 * np.pi, num_sides, endpoint=False) + np.radians(rotation)
+        points = np.array([
+            [x + size * np.cos(angle), y + size * np.sin(angle)]
+            for angle in angles
+        ], dtype=np.int32)
+        return points
+    
+    @staticmethod
+    def get_star_points(x: int, y: int, size: int, num_points: int = 5, rotation: float = 0) -> np.ndarray:
+        """Generate points for a star shape."""
+        inner_radius = size * 0.4
+        points = []
+        for i in range(num_points * 2):
+            angle = np.pi / num_points * i + np.radians(rotation)
+            radius = size if i % 2 == 0 else inner_radius
+            points.append([x + radius * np.cos(angle), y + radius * np.sin(angle)])
+        return np.array(points, dtype=np.int32)
+    
+    @staticmethod
+    def draw_shape(overlay: np.ndarray, shape: GeometricShape, x: int, y: int, 
+                   size: int, color: Tuple[int, int, int], rotation: float = 0, 
+                   alpha: float = 1.0, glow: bool = True) -> None:
+        """Draw a geometric shape with optional glow effect."""
+        color_with_alpha = tuple(int(c * alpha) for c in color)
+        
+        # Draw enhanced glow layers - more intense!
+        if glow:
+            for i in range(5, 0, -1):  # More glow layers
+                glow_size = size + i * 3  # Bigger glow
+                glow_alpha = alpha * 0.35 * (6 - i) / 5  # Stronger glow
+                glow_color = tuple(int(c * glow_alpha) for c in color)
+                ShapeRenderer._draw_shape_core(overlay, shape, x, y, glow_size, glow_color, rotation)
+        
+        # Draw main shape
+        ShapeRenderer._draw_shape_core(overlay, shape, x, y, size, color_with_alpha, rotation)
+    
+    @staticmethod
+    def _draw_shape_core(overlay: np.ndarray, shape: GeometricShape, x: int, y: int,
+                         size: int, color: Tuple[int, int, int], rotation: float) -> None:
+        """Draw the core shape without effects."""
+        if shape == GeometricShape.TRIANGLE:
+            points = ShapeRenderer.get_polygon_points(x, y, size, 3, rotation)
+            cv2.fillPoly(overlay, [points], color, lineType=cv2.LINE_AA)
+        elif shape == GeometricShape.SQUARE:
+            points = ShapeRenderer.get_polygon_points(x, y, size, 4, rotation)
+            cv2.fillPoly(overlay, [points], color, lineType=cv2.LINE_AA)
+        elif shape == GeometricShape.PENTAGON:
+            points = ShapeRenderer.get_polygon_points(x, y, size, 5, rotation)
+            cv2.fillPoly(overlay, [points], color, lineType=cv2.LINE_AA)
+        elif shape == GeometricShape.HEXAGON:
+            points = ShapeRenderer.get_polygon_points(x, y, size, 6, rotation)
+            cv2.fillPoly(overlay, [points], color, lineType=cv2.LINE_AA)
+        elif shape == GeometricShape.OCTAGON:
+            points = ShapeRenderer.get_polygon_points(x, y, size, 8, rotation)
+            cv2.fillPoly(overlay, [points], color, lineType=cv2.LINE_AA)
+        elif shape == GeometricShape.STAR:
+            points = ShapeRenderer.get_star_points(x, y, size, 5, rotation)
+            cv2.fillPoly(overlay, [points], color, lineType=cv2.LINE_AA)
+        elif shape == GeometricShape.DIAMOND:
+            points = ShapeRenderer.get_polygon_points(x, y, size, 4, rotation + 45)
+            cv2.fillPoly(overlay, [points], color, lineType=cv2.LINE_AA)
+
+
 class ParticleRenderer(ABC):
     """Abstract base class for particle rendering strategies (Strategy Pattern)."""
     
     @abstractmethod
-    def render(self, overlay: np.ndarray, particle: 'Particle', 
+    def render(self, overlay: np.ndarray, frame: np.ndarray, particle: 'Particle', 
               x: int, y: int, size: int, color: Tuple[int, int, int]) -> None:
         """Render particle on overlay."""
 
 
 class NormalRenderer(ParticleRenderer):
-    """Renderer for normal particles with glow."""
+    """Renderer for normal particles with geometric shapes."""
     
-    def render(self, overlay: np.ndarray, particle: 'Particle', 
+    def render(self, overlay: np.ndarray, frame: np.ndarray, particle: 'Particle', 
               x: int, y: int, size: int, color: Tuple[int, int, int]) -> None:
-        alpha = particle.alpha
-        outer_color = tuple(int(c * 0.3 * alpha) for c in color)
-        cv2.circle(overlay, (x, y), size + 6, outer_color, -1, lineType=cv2.LINE_AA)
-        mid_color = tuple(int(c * 0.6 * alpha) for c in color)
-        cv2.circle(overlay, (x, y), size + 3, mid_color, -1, lineType=cv2.LINE_AA)
-        main_color = tuple(int(c * alpha) for c in color)
-        cv2.circle(overlay, (x, y), size, main_color, -1, lineType=cv2.LINE_AA)
-        core_color = tuple(min(255, int(c * 1.3 * alpha)) for c in color)
-        cv2.circle(overlay, (x, y), max(1, size // 2), core_color, -1, lineType=cv2.LINE_AA)
+        # Sample color from frame at particle position for better blending
+        h, w = frame.shape[:2]
+        if 0 <= x < w and 0 <= y < h:
+            frame_color = frame[y, x]
+            # More vibrant blend - boost particle color
+            blended_color = tuple(min(255, int(color[i] * 1.3 + frame_color[i] * 0.2)) for i in range(3))
+        else:
+            # Boost color intensity when no frame color available
+            blended_color = tuple(min(255, int(c * 1.3)) for c in color)
+        
+        ShapeRenderer.draw_shape(overlay, particle.shape, x, y, size, 
+                                blended_color, particle.rotation, particle.alpha, glow=True)
 
 
 class StreakRenderer(ParticleRenderer):
-    """Renderer for streak particles with motion trail."""
+    """Renderer for streak particles with motion trail using geometric shapes."""
     
-    def render(self, overlay: np.ndarray, particle: 'Particle', 
+    def render(self, overlay: np.ndarray, frame: np.ndarray, particle: 'Particle', 
               x: int, y: int, size: int, color: Tuple[int, int, int]) -> None:
         h, w = overlay.shape[:2]
         for t in range(particle.trail_length):
@@ -172,53 +255,82 @@ class StreakRenderer(ParticleRenderer):
             if 0 <= trail_x < w and 0 <= trail_y < h:
                 trail_alpha = particle.alpha * (1.0 - t / particle.trail_length)
                 trail_size = max(1, int(size * (1.0 - t / particle.trail_length * 0.5)))
-                trail_color = tuple(int(c * trail_alpha) for c in color)
-                cv2.circle(overlay, (trail_x, trail_y), trail_size, trail_color, -1, lineType=cv2.LINE_AA)
+                
+                # Much more vivid - prioritize particle color
+                frame_color = frame[trail_y, trail_x]
+                trail_color = tuple(min(255, int(color[i] * 1.2 + frame_color[i] * 0.15)) for i in range(3))
+                
+                trail_rotation = particle.rotation + t * 20
+                ShapeRenderer.draw_shape(overlay, particle.shape, trail_x, trail_y, 
+                                       trail_size, trail_color, trail_rotation, trail_alpha, glow=True)
 
 
 class BlobRenderer(ParticleRenderer):
-    """Renderer for blob particles with multiple layers."""
+    """Renderer for blob particles with multiple layers using geometric shapes."""
     
-    def render(self, overlay: np.ndarray, particle: 'Particle', 
+    def render(self, overlay: np.ndarray, frame: np.ndarray, particle: 'Particle', 
               x: int, y: int, size: int, color: Tuple[int, int, int]) -> None:
+        h, w = frame.shape[:2]
         alpha = particle.alpha
+        
+        # Much more saturated and vivid
+        if 0 <= x < w and 0 <= y < h:
+            frame_color = frame[y, x]
+            blended_color = tuple(min(255, int(color[i] * 1.5 + frame_color[i] * 0.1)) for i in range(3))
+        else:
+            blended_color = tuple(min(255, int(c * 1.5)) for c in color)
+        
+        # Draw multiple layers with different rotations and stronger alpha
         for layer in range(3):
             layer_size = size + (3 - layer) * 3
-            layer_alpha = alpha * (0.3 + 0.2 * layer)
-            layer_color = tuple(int(c * layer_alpha) for c in color)
-            cv2.circle(overlay, (x, y), layer_size, layer_color, -1, lineType=cv2.LINE_AA)
-        core_color = tuple(min(255, int(c * 1.5 * alpha)) for c in color)
-        cv2.circle(overlay, (x, y), max(1, size // 2), core_color, -1, lineType=cv2.LINE_AA)
+            layer_alpha = alpha * (0.5 + 0.3 * layer)  # Increased visibility
+            layer_rotation = particle.rotation + layer * 15
+            ShapeRenderer.draw_shape(overlay, particle.shape, x, y, layer_size, 
+                                   blended_color, layer_rotation, layer_alpha, glow=True)
 
 
 class SparkleRenderer(ParticleRenderer):
-    """Renderer for sparkle particles with star rays."""
+    """Renderer for sparkle particles using star shapes."""
     
-    def render(self, overlay: np.ndarray, particle: 'Particle', 
+    def render(self, overlay: np.ndarray, frame: np.ndarray, particle: 'Particle', 
               x: int, y: int, size: int, color: Tuple[int, int, int]) -> None:
+        h, w = frame.shape[:2]
         alpha = particle.alpha
-        bright_color = tuple(min(255, int(c * 1.8 * alpha)) for c in color)
-        cv2.circle(overlay, (x, y), size, bright_color, -1, lineType=cv2.LINE_AA)
-        ray_length = size * 2
-        glow_color = tuple(int(c * 0.8 * alpha) for c in color)
-        cv2.line(overlay, (x - ray_length, y), (x + ray_length, y), glow_color, 1, lineType=cv2.LINE_AA)
-        cv2.line(overlay, (x, y - ray_length), (x, y + ray_length), glow_color, 1, lineType=cv2.LINE_AA)
-        diag = int(ray_length * 0.7)
-        cv2.line(overlay, (x - diag, y - diag), (x + diag, y + diag), glow_color, 1, lineType=cv2.LINE_AA)
-        cv2.line(overlay, (x - diag, y + diag), (x + diag, y - diag), glow_color, 1, lineType=cv2.LINE_AA)
+        
+        # Super bright and vibrant - SBAM!
+        if 0 <= x < w and 0 <= y < h:
+            frame_color = frame[y, x]
+            bright_color = tuple(min(255, int(color[i] * 1.8 + frame_color[i] * 0.1)) for i in range(3))
+        else:
+            bright_color = tuple(min(255, int(c * 2.0)) for c in color)
+        
+        # Always use star shape for sparkles with extra glow
+        ShapeRenderer.draw_shape(overlay, GeometricShape.STAR, x, y, size, 
+                               bright_color, particle.rotation, alpha, glow=True)
 
 
 class SmokeRenderer(ParticleRenderer):
-    """Renderer for smoke particles with diffuse effect."""
+    """Renderer for smoke particles with diffuse geometric effect."""
     
-    def render(self, overlay: np.ndarray, particle: 'Particle', 
+    def render(self, overlay: np.ndarray, frame: np.ndarray, particle: 'Particle', 
               x: int, y: int, size: int, color: Tuple[int, int, int]) -> None:
+        h, w = frame.shape[:2]
         alpha = particle.alpha
+        
+        # More visible smoke with color enhancement
+        if 0 <= x < w and 0 <= y < h:
+            frame_color = frame[y, x]
+            smoke_color = tuple(min(255, int(color[i] * 0.8 + frame_color[i] * 0.4)) for i in range(3))
+        else:
+            smoke_color = tuple(min(255, int(c * 1.2)) for c in color)
+        
+        # Draw multiple diffuse layers with increased visibility
         for layer in range(4):
             smoke_size = size + layer * 2
-            smoke_alpha = alpha * (0.15 * (4 - layer))
-            smoke_color = tuple(int(c * smoke_alpha) for c in color)
-            cv2.circle(overlay, (x, y), smoke_size, smoke_color, -1, lineType=cv2.LINE_AA)
+            smoke_alpha = alpha * (0.25 * (4 - layer))  # More visible
+            layer_rotation = particle.rotation + layer * 10
+            ShapeRenderer.draw_shape(overlay, particle.shape, x, y, smoke_size, 
+                                   smoke_color, layer_rotation, smoke_alpha, glow=True)
 
 
 class ParticleRendererFactory:
@@ -249,8 +361,9 @@ class Particle:
     
     def __init__(self, x: float, y: float, vx: float, vy: float, 
                  color: Tuple[int, int, int], size: float, life: float, 
-                 particle_type: ParticleType = ParticleType.NORMAL):
-        """Initialize particle with position, velocity, appearance and type."""
+                 particle_type: ParticleType = ParticleType.NORMAL,
+                 shape: GeometricShape = None):
+        """Initialize particle with position, velocity, appearance, type and shape."""
         self.x = x
         self.y = y
         self.vx = vx
@@ -268,6 +381,17 @@ class Particle:
         self.trail_length = np.random.randint(3, 8) if particle_type == ParticleType.STREAK else 0
         self._movement_strategy = ParticleMovementFactory.get_strategy(particle_type)
         self._renderer = ParticleRendererFactory.get_renderer(particle_type)
+        
+        # Assign geometric shape (sparkles always get stars)
+        if particle_type == ParticleType.SPARKLE:
+            self.shape = GeometricShape.STAR
+        elif shape is not None:
+            self.shape = shape
+        else:
+            # Random shape for other particle types
+            shapes = [GeometricShape.TRIANGLE, GeometricShape.SQUARE, GeometricShape.PENTAGON,
+                     GeometricShape.HEXAGON, GeometricShape.DIAMOND, GeometricShape.OCTAGON]
+            self.shape = np.random.choice(shapes)
     
     def update(self, beat_intensity: float, dt: float = 1.0) -> None:
         """Update particle state."""
@@ -312,21 +436,26 @@ class Particle:
         return self.size * pulse
     
     def get_mutated_color(self) -> Tuple[int, int, int]:
-        """Get color with mutation effect."""
+        """Get color with enhanced mutation effect for more vivid colors."""
         wave = np.sin(self.mutation_phase * 2.0)
-        shift = int(wave * 30)
+        shift = int(wave * 50)  # Increased shift for more color variation
         b, g, r = self.color
+        
+        # Boost saturation for more vivid colors
+        avg = (b + g + r) / 3
+        saturation_boost = 1.4
+        
         return (
-            max(0, min(255, b + shift)),
-            max(0, min(255, g - shift)),
-            max(0, min(255, r + shift))
+            max(0, min(255, int((b - avg) * saturation_boost + avg + shift))),
+            max(0, min(255, int((g - avg) * saturation_boost + avg - shift))),
+            max(0, min(255, int((r - avg) * saturation_boost + avg + shift)))
         )
     
-    def render(self, overlay: np.ndarray, x: int, y: int) -> None:
+    def render(self, overlay: np.ndarray, frame: np.ndarray, x: int, y: int) -> None:
         """Render particle using its specific renderer."""
         size = max(1, int(self.get_mutated_size()))
         color = self.get_mutated_color()
-        self._renderer.render(overlay, self, x, y, size, color)
+        self._renderer.render(overlay, frame, self, x, y, size, color)
 
 
 class ColorAnalyzer:
@@ -412,9 +541,9 @@ class ParticleFactory:
     
     @staticmethod
     def _add_color_variation(color: Tuple[int, int, int]) -> Tuple[int, int, int]:
-        """Add variation to color."""
+        """Add subtle variation to color for more natural look."""
         b, g, r = color
-        variation = 0.3
+        variation = 0.15  # Reduced variation for better color matching
         return (
             max(0, min(255, int(b * np.random.uniform(1 - variation, 1 + variation)))),
             max(0, min(255, int(g * np.random.uniform(1 - variation, 1 + variation)))),
@@ -449,7 +578,7 @@ class GhostParticlesEffect(BaseEffect):
     BEAT_BOOST_FACTOR = 0.5
     PARTICLE_COUNT_MULTIPLIER = 0.8
     MIN_PARTICLES_PER_EXPLOSION = 8
-    BLEND_ALPHA = 0.85
+    BLEND_ALPHA = 1.1  # Increased for more vivid particles - SBAM!
     
     def __init__(self, 
                  sample_density: int = DEFAULT_SAMPLE_DENSITY,
@@ -535,7 +664,7 @@ class GhostParticlesEffect(BaseEffect):
             x, y = int(particle.x), int(particle.y)
             
             if 0 <= x < w and 0 <= y < h:
-                particle.render(overlay, x, y)
+                particle.render(overlay, frame, x, y)
         
         overlay = np.clip(overlay, 0, 255).astype(np.uint8)
         return cv2.addWeighted(result, 1.0, overlay, self.BLEND_ALPHA, 0)
