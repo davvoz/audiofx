@@ -25,6 +25,7 @@ class App(tk.Tk):
         self.custom_video_path = tk.StringVar()
         self.custom_output_path = tk.StringVar(value="custom_output.mp4")
         self.custom_fps_var = tk.IntVar(value=30)
+        self.custom_duration = tk.StringVar(value="")  # Empty = full audio duration
         self.custom_video_mode = tk.StringVar(value="loop")
         self.use_video_audio = tk.BooleanVar(value=False)
         self.use_native_resolution = tk.BooleanVar(value=True)  # NEW: use native resolution by default
@@ -44,6 +45,7 @@ class App(tk.Tk):
         self.effect_advanced_glitch = tk.BooleanVar(value=False)
         self.effect_dimensional_warp = tk.BooleanVar(value=False)
         self.effect_vortex_distortion = tk.BooleanVar(value=False)
+        self.effect_floating_text = tk.BooleanVar(value=False)
         
         # Custom effect intensities
         self.intensity_color_pulse = tk.DoubleVar(value=1.0)
@@ -60,6 +62,21 @@ class App(tk.Tk):
         self.intensity_advanced_glitch = tk.DoubleVar(value=1.0)
         self.intensity_dimensional_warp = tk.DoubleVar(value=1.0)
         self.intensity_vortex_distortion = tk.DoubleVar(value=1.0)
+        self.intensity_floating_text = tk.DoubleVar(value=1.0)
+        
+        # Floating text configuration
+        self.floating_text_content = tk.StringVar(value="MUSIC")
+        self.floating_text_color_scheme = tk.StringVar(value="rainbow")
+        self.floating_text_animation = tk.StringVar(value="wave")
+        self.floating_text_font_size = tk.IntVar(value=120)
+        
+        # Effect order management
+        self.effect_order = [
+            "ColorPulse", "ZoomPulse", "Strobe", "StrobeNegative", "Glitch",
+            "ChromaticAberration", "BubbleDistortion", "ScreenShake", "RGBSplit",
+            "ElectricArcs", "FashionLightning", "AdvancedGlitch", 
+            "DimensionalWarp", "VortexDistortion", "FloatingText"
+        ]
         
         # Custom thresholds
         self.threshold_bass = tk.DoubleVar(value=0.3)
@@ -196,42 +213,48 @@ class App(tk.Tk):
         self.custom_fps_spinbox = tk.Spinbox(frame, from_=1, to=120, textvariable=self.custom_fps_var, width=10)
         self.custom_fps_spinbox.grid(row=5, column=1, sticky="w", **pad)
         
+        # Duration control
+        tk.Label(frame, text="Durata (sec):").grid(row=5, column=2, sticky="e", padx=(20,5))
+        duration_entry = tk.Entry(frame, textvariable=self.custom_duration, width=10)
+        duration_entry.grid(row=5, column=3, sticky="w", **pad)
+        tk.Label(frame, text="(vuoto = durata completa)", font=("Arial", 7)).grid(row=6, column=3, sticky="w", padx=(10,0))
+        
         # Initialize visibility based on mode
         self._toggle_custom_mode()
         
         # Separator
         sep = ttk.Separator(frame, orient="horizontal")
-        sep.grid(row=6, column=0, columnspan=4, sticky="ew", padx=10, pady=(8, 2))
+        sep.grid(row=7, column=0, columnspan=4, sticky="ew", padx=10, pady=(8, 2))
         
         # Thresholds section
-        tk.Label(frame, text="Soglie Audio:", font=("Arial", 9, "bold")).grid(row=7, column=0, sticky="w", **pad)
+        tk.Label(frame, text="Soglie Audio:", font=("Arial", 9, "bold")).grid(row=8, column=0, sticky="w", **pad)
         
-        tk.Label(frame, text="Bass:").grid(row=8, column=0, sticky="e", **pad)
+        tk.Label(frame, text="Bass:").grid(row=9, column=0, sticky="e", **pad)
         tk.Scale(frame, variable=self.threshold_bass, from_=0.0, to=1.0, resolution=0.01, 
-                orient="horizontal", length=150).grid(row=8, column=1, sticky="w", **pad)
-        
-        tk.Label(frame, text="Mid:").grid(row=8, column=2, sticky="e", padx=(20,5))
-        tk.Scale(frame, variable=self.threshold_mid, from_=0.0, to=1.0, resolution=0.01, 
-                orient="horizontal", length=150).grid(row=8, column=3, sticky="w", **pad)
-        
-        tk.Label(frame, text="High:").grid(row=9, column=0, sticky="e", **pad)
-        tk.Scale(frame, variable=self.threshold_high, from_=0.0, to=1.0, resolution=0.01, 
                 orient="horizontal", length=150).grid(row=9, column=1, sticky="w", **pad)
+        
+        tk.Label(frame, text="Mid:").grid(row=9, column=2, sticky="e", padx=(20,5))
+        tk.Scale(frame, variable=self.threshold_mid, from_=0.0, to=1.0, resolution=0.01, 
+                orient="horizontal", length=150).grid(row=9, column=3, sticky="w", **pad)
+        
+        tk.Label(frame, text="High:").grid(row=10, column=0, sticky="e", **pad)
+        tk.Scale(frame, variable=self.threshold_high, from_=0.0, to=1.0, resolution=0.01, 
+                orient="horizontal", length=150).grid(row=10, column=1, sticky="w", **pad)
         
         # Separator
         sep2 = ttk.Separator(frame, orient="horizontal")
-        sep2.grid(row=10, column=0, columnspan=4, sticky="ew", padx=10, pady=(8, 2))
+        sep2.grid(row=11, column=0, columnspan=4, sticky="ew", padx=10, pady=(8, 2))
         
         # Logo overlay section
         tk.Label(frame, text="Logo Overlay (opzionale):", font=("Arial", 9, "bold")).grid(
-            row=11, column=0, sticky="w", **pad
+            row=12, column=0, sticky="w", **pad
         )
         
-        tk.Label(frame, text="Logo:").grid(row=12, column=0, sticky="e", **pad)
-        tk.Entry(frame, textvariable=self.logo_path, width=35).grid(row=12, column=1, **pad)
-        tk.Button(frame, text="Sfoglia", command=self._browse_logo).grid(row=12, column=2, **pad)
+        tk.Label(frame, text="Logo:").grid(row=13, column=0, sticky="e", **pad)
+        tk.Entry(frame, textvariable=self.logo_path, width=35).grid(row=13, column=1, **pad)
+        tk.Button(frame, text="Sfoglia", command=self._browse_logo).grid(row=13, column=2, **pad)
         
-        tk.Label(frame, text="Posizione:").grid(row=13, column=0, sticky="e", **pad)
+        tk.Label(frame, text="Posizione:").grid(row=14, column=0, sticky="e", **pad)
         logo_pos_combo = ttk.Combobox(
             frame,
             textvariable=self.logo_position,
@@ -239,33 +262,33 @@ class App(tk.Tk):
             state="readonly",
             width=12
         )
-        logo_pos_combo.grid(row=13, column=1, sticky="w", **pad)
+        logo_pos_combo.grid(row=14, column=1, sticky="w", **pad)
         
-        tk.Label(frame, text="Scala:").grid(row=13, column=2, sticky="e", padx=(20,5))
+        tk.Label(frame, text="Scala:").grid(row=14, column=2, sticky="e", padx=(20,5))
         tk.Scale(frame, variable=self.logo_scale, from_=0.05, to=0.5, resolution=0.05,
-                orient="horizontal", length=100).grid(row=13, column=3, sticky="w", **pad)
+                orient="horizontal", length=100).grid(row=14, column=3, sticky="w", **pad)
         
-        tk.Label(frame, text="Opacità:").grid(row=14, column=0, sticky="e", **pad)
+        tk.Label(frame, text="Opacità:").grid(row=15, column=0, sticky="e", **pad)
         tk.Scale(frame, variable=self.logo_opacity, from_=0.0, to=1.0, resolution=0.1,
-                orient="horizontal", length=150).grid(row=14, column=1, sticky="w", **pad)
+                orient="horizontal", length=150).grid(row=15, column=1, sticky="w", **pad)
         
-        tk.Label(frame, text="Margine:").grid(row=14, column=2, sticky="e", padx=(20,5))
+        tk.Label(frame, text="Margine:").grid(row=15, column=2, sticky="e", padx=(20,5))
         tk.Spinbox(frame, from_=0, to=100, textvariable=self.logo_margin, width=10).grid(
-            row=14, column=3, sticky="w", **pad
+            row=15, column=3, sticky="w", **pad
         )
         
         # Separator
         sep3 = ttk.Separator(frame, orient="horizontal")
-        sep3.grid(row=15, column=0, columnspan=4, sticky="ew", padx=10, pady=(8, 2))
+        sep3.grid(row=16, column=0, columnspan=4, sticky="ew", padx=10, pady=(8, 2))
         
         # Effects section
         tk.Label(frame, text="Effetti (seleziona e imposta intensità):", font=("Arial", 9, "bold")).grid(
-            row=16, column=0, columnspan=2, sticky="w", **pad
+            row=17, column=0, columnspan=2, sticky="w", **pad
         )
         
         # Create scrollable frame for effects
         effects_frame = tk.Frame(frame)
-        effects_frame.grid(row=17, column=0, columnspan=4, sticky="ew", **pad)
+        effects_frame.grid(row=18, column=0, columnspan=4, sticky="ew", **pad)
         
         # Effect checkboxes with intensity sliders
         effects = [
@@ -283,13 +306,15 @@ class App(tk.Tk):
             ("AdvancedGlitch", self.effect_advanced_glitch, self.intensity_advanced_glitch),
             ("DimensionalWarp", self.effect_dimensional_warp, self.intensity_dimensional_warp),
             ("VortexDistortion", self.effect_vortex_distortion, self.intensity_vortex_distortion),
+            ("FloatingText", self.effect_floating_text, self.intensity_floating_text),
         ]
         
         for idx, (name, var, intensity_var) in enumerate(effects):
             row_offset = idx // 2
             col_offset = (idx % 2) * 2
             
-            tk.Checkbutton(effects_frame, text=name, variable=var).grid(
+            tk.Checkbutton(effects_frame, text=name, variable=var, 
+                          command=self._refresh_order_listbox).grid(
                 row=row_offset, column=col_offset, sticky="w", padx=5, pady=2
             )
             tk.Scale(effects_frame, variable=intensity_var, from_=0.0, to=2.0, resolution=0.1,
@@ -297,17 +322,110 @@ class App(tk.Tk):
                 row=row_offset, column=col_offset + 1, sticky="w", padx=5, pady=2
             )
         
+        # Separator
+        sep4 = ttk.Separator(frame, orient="horizontal")
+        sep4.grid(row=17, column=0, columnspan=4, sticky="ew", padx=10, pady=(8, 2))
+        
+        # Floating Text Configuration (shown when FloatingText is enabled)
+        tk.Label(frame, text="Configurazione Floating Text:", font=("Arial", 9, "bold")).grid(
+            row=18, column=0, columnspan=2, sticky="w", **pad
+        )
+        
+        floating_config_frame = tk.Frame(frame)
+        floating_config_frame.grid(row=19, column=0, columnspan=4, sticky="ew", **pad)
+        
+        tk.Label(floating_config_frame, text="Testo:").grid(row=0, column=0, sticky="e", padx=5, pady=2)
+        tk.Entry(floating_config_frame, textvariable=self.floating_text_content, width=20).grid(
+            row=0, column=1, sticky="w", padx=5, pady=2
+        )
+        
+        tk.Label(floating_config_frame, text="Colori:").grid(row=0, column=2, sticky="e", padx=(20, 5), pady=2)
+        color_combo = ttk.Combobox(
+            floating_config_frame,
+            textvariable=self.floating_text_color_scheme,
+            values=["rainbow", "fire", "ice", "neon", "gold", "default"],
+            state="readonly",
+            width=12
+        )
+        color_combo.grid(row=0, column=3, sticky="w", padx=5, pady=2)
+        
+        tk.Label(floating_config_frame, text="Animazione:").grid(row=1, column=0, sticky="e", padx=5, pady=2)
+        anim_combo = ttk.Combobox(
+            floating_config_frame,
+            textvariable=self.floating_text_animation,
+            values=["wave", "bounce", "spin", "pulse", "glitch"],
+            state="readonly",
+            width=12
+        )
+        anim_combo.grid(row=1, column=1, sticky="w", padx=5, pady=2)
+        
+        tk.Label(floating_config_frame, text="Dimensione Font:").grid(row=1, column=2, sticky="e", padx=(20, 5), pady=2)
+        tk.Spinbox(floating_config_frame, from_=50, to=300, textvariable=self.floating_text_font_size, 
+                  width=10).grid(row=1, column=3, sticky="w", padx=5, pady=2)
+        
+        # Separator
+        sep5 = ttk.Separator(frame, orient="horizontal")
+        sep5.grid(row=19, column=0, columnspan=4, sticky="ew", padx=10, pady=(8, 2))
+        
+        # Effect Order Section
+        tk.Label(frame, text="Ordine Effetti (importante!):", font=("Arial", 9, "bold")).grid(
+            row=20, column=0, columnspan=2, sticky="w", **pad
+        )
+        tk.Label(frame, text="L'ordine cambia il risultato finale", font=("Arial", 8, "italic"), 
+                fg="gray").grid(row=20, column=2, columnspan=2, sticky="w", **pad)
+        
+        # Frame for effect order management
+        order_frame = tk.Frame(frame)
+        order_frame.grid(row=21, column=0, columnspan=4, sticky="ew", **pad)
+        
+        # Listbox to show and reorder effects
+        tk.Label(order_frame, text="Ordine corrente:").grid(row=0, column=0, sticky="nw", padx=5)
+        
+        self.order_listbox = tk.Listbox(order_frame, height=8, width=25)
+        self.order_listbox.grid(row=1, column=0, rowspan=4, padx=5, pady=5)
+        
+        # Nota: la listbox verrà popolata dopo con _refresh_order_listbox()
+        # per mostrare solo gli effetti selezionati
+        
+        # Buttons to reorder
+        btn_frame = tk.Frame(order_frame)
+        btn_frame.grid(row=1, column=1, padx=5, sticky="n")
+        
+        tk.Button(btn_frame, text="▲ Su", width=10, command=self._move_effect_up).pack(pady=2)
+        tk.Button(btn_frame, text="▼ Giù", width=10, command=self._move_effect_down).pack(pady=2)
+        tk.Button(btn_frame, text="⬆ In cima", width=10, command=self._move_effect_top).pack(pady=2)
+        tk.Button(btn_frame, text="⬇ In fondo", width=10, command=self._move_effect_bottom).pack(pady=2)
+        tk.Button(btn_frame, text="↺ Reset", width=10, command=self._reset_effect_order).pack(pady=2)
+        
+        # Tips
+        tips_frame = tk.Frame(order_frame)
+        tips_frame.grid(row=1, column=2, rowspan=4, padx=10, sticky="n")
+        
+        tk.Label(tips_frame, text="💡 Suggerimenti:", font=("Arial", 8, "bold")).pack(anchor="w")
+        tips_text = """
+• FloatingText alla fine = testo sopra
+• FloatingText all'inizio = effetti sopra testo
+• Glitch prima = sfondo distorto
+• ColorPulse all'inizio = base colorata
+• ScreenShake alla fine = tutto si muove
+        """
+        tk.Label(tips_frame, text=tips_text, font=("Arial", 7), justify=tk.LEFT, 
+                fg="darkblue").pack(anchor="w")
+        
         # Progress
         self.custom_progress = ttk.Progressbar(frame, mode="determinate", length=620)
-        self.custom_progress.grid(row=18, column=0, columnspan=4, **pad)
+        self.custom_progress.grid(row=22, column=0, columnspan=4, **pad)
         self.custom_status_lbl = tk.Label(frame, text="Pronto")
-        self.custom_status_lbl.grid(row=19, column=0, columnspan=4, sticky="w", **pad)
+        self.custom_status_lbl.grid(row=23, column=0, columnspan=4, sticky="w", **pad)
         
         # Actions
         self.custom_run_btn = tk.Button(frame, text="Genera Video Custom", command=self.on_custom_run)
-        self.custom_run_btn.grid(row=20, column=2, sticky="e", **pad)
+        self.custom_run_btn.grid(row=24, column=2, sticky="e", **pad)
         self.custom_cancel_btn = tk.Button(frame, text="Annulla", command=self.on_cancel, state=tk.DISABLED)
-        self.custom_cancel_btn.grid(row=20, column=3, sticky="w", **pad)
+        self.custom_cancel_btn.grid(row=24, column=3, sticky="w", **pad)
+        
+        # Popola la listbox ordine effetti con gli effetti inizialmente selezionati
+        self._refresh_order_listbox()
     
     def _browse_custom_audio(self) -> None:
         path = filedialog.askopenfilename(
@@ -340,6 +458,138 @@ class App(tk.Tk):
         )
         if path:
             self.logo_path.set(path)
+    
+    def _move_effect_up(self) -> None:
+        """Sposta l'effetto selezionato su di una posizione"""
+        selection = self.order_listbox.curselection()
+        if not selection or selection[0] == 0:
+            return
+        
+        # Ottieni l'effetto selezionato dalla listbox (solo quelli visibili)
+        selected_effect = self.order_listbox.get(selection[0])
+        
+        # Trova la posizione nell'array completo
+        idx_in_full_list = self.effect_order.index(selected_effect)
+        
+        if idx_in_full_list == 0:
+            return
+        
+        # Swap nell'array completo
+        self.effect_order[idx_in_full_list], self.effect_order[idx_in_full_list-1] = \
+            self.effect_order[idx_in_full_list-1], self.effect_order[idx_in_full_list]
+        
+        # Aggiorna listbox
+        self._refresh_order_listbox()
+        
+        # Riseleziona l'elemento (se ancora visibile)
+        new_idx = max(0, selection[0] - 1)
+        if new_idx < self.order_listbox.size():
+            self.order_listbox.selection_set(new_idx)
+    
+    def _move_effect_down(self) -> None:
+        """Sposta l'effetto selezionato giù di una posizione"""
+        selection = self.order_listbox.curselection()
+        if not selection:
+            return
+        
+        # Ottieni l'effetto selezionato
+        selected_effect = self.order_listbox.get(selection[0])
+        
+        # Trova la posizione nell'array completo
+        idx_in_full_list = self.effect_order.index(selected_effect)
+        
+        if idx_in_full_list >= len(self.effect_order) - 1:
+            return
+        
+        # Swap nell'array completo
+        self.effect_order[idx_in_full_list], self.effect_order[idx_in_full_list+1] = \
+            self.effect_order[idx_in_full_list+1], self.effect_order[idx_in_full_list]
+        
+        # Aggiorna listbox
+        self._refresh_order_listbox()
+        
+        # Riseleziona l'elemento
+        new_idx = min(selection[0] + 1, self.order_listbox.size() - 1)
+        if new_idx >= 0:
+            self.order_listbox.selection_set(new_idx)
+    
+    def _move_effect_top(self) -> None:
+        """Sposta l'effetto selezionato in cima"""
+        selection = self.order_listbox.curselection()
+        if not selection:
+            return
+        
+        # Ottieni l'effetto selezionato
+        selected_effect = self.order_listbox.get(selection[0])
+        
+        # Trova e sposta nell'array completo
+        idx_in_full_list = self.effect_order.index(selected_effect)
+        effect = self.effect_order.pop(idx_in_full_list)
+        self.effect_order.insert(0, effect)
+        
+        # Aggiorna listbox
+        self._refresh_order_listbox()
+        self.order_listbox.selection_set(0)
+    
+    def _move_effect_bottom(self) -> None:
+        """Sposta l'effetto selezionato in fondo"""
+        selection = self.order_listbox.curselection()
+        if not selection:
+            return
+        
+        # Ottieni l'effetto selezionato
+        selected_effect = self.order_listbox.get(selection[0])
+        
+        # Trova e sposta nell'array completo
+        idx_in_full_list = self.effect_order.index(selected_effect)
+        effect = self.effect_order.pop(idx_in_full_list)
+        self.effect_order.append(effect)
+        
+        # Aggiorna listbox
+        self._refresh_order_listbox()
+        
+        # Seleziona l'ultimo elemento visibile
+        last_idx = self.order_listbox.size() - 1
+        if last_idx >= 0:
+            self.order_listbox.selection_set(last_idx)
+    
+    def _reset_effect_order(self) -> None:
+        """Ripristina l'ordine predefinito degli effetti"""
+        self.effect_order = [
+            "ColorPulse", "ZoomPulse", "Strobe", "StrobeNegative", "Glitch",
+            "ChromaticAberration", "BubbleDistortion", "ScreenShake", "RGBSplit",
+            "ElectricArcs", "FashionLightning", "AdvancedGlitch", 
+            "DimensionalWarp", "VortexDistortion", "FloatingText"
+        ]
+        self._refresh_order_listbox()
+    
+    def _refresh_order_listbox(self) -> None:
+        """Aggiorna la listbox con l'ordine corrente (solo effetti selezionati)"""
+        self.order_listbox.delete(0, tk.END)
+        
+        # Mappa effetti con le loro checkbox
+        effect_enabled_map = {
+            "ColorPulse": self.effect_color_pulse,
+            "ZoomPulse": self.effect_zoom_pulse,
+            "Strobe": self.effect_strobe,
+            "StrobeNegative": self.effect_strobe_negative,
+            "Glitch": self.effect_glitch,
+            "ChromaticAberration": self.effect_chromatic,
+            "BubbleDistortion": self.effect_bubble,
+            "ScreenShake": self.effect_screen_shake,
+            "RGBSplit": self.effect_rgb_split,
+            "ElectricArcs": self.effect_electric_arcs,
+            "FashionLightning": self.effect_fashion_lightning,
+            "AdvancedGlitch": self.effect_advanced_glitch,
+            "DimensionalWarp": self.effect_dimensional_warp,
+            "VortexDistortion": self.effect_vortex_distortion,
+            "FloatingText": self.effect_floating_text,
+        }
+        
+        # Mostra solo gli effetti selezionati
+        for effect in self.effect_order:
+            if effect in effect_enabled_map and effect_enabled_map[effect].get():
+                self.order_listbox.insert(tk.END, effect)
     
     def _toggle_video_audio(self) -> None:
         """Toggle audio input controls based on use_video_audio checkbox."""
@@ -458,6 +708,7 @@ class App(tk.Tk):
             self.effect_advanced_glitch.get(),
             self.effect_dimensional_warp.get(),
             self.effect_vortex_distortion.get(),
+            self.effect_floating_text.get(),
         ]):
             messagebox.showerror("Errore", "Seleziona almeno un effetto")
             return
@@ -490,7 +741,7 @@ class App(tk.Tk):
                     ColorPulseEffect, ZoomPulseEffect, StrobeEffect, StrobeNegativeEffect, GlitchEffect,
                     ChromaticAberrationEffect, BubbleDistortionEffect, ScreenShakeEffect, RGBSplitEffect,
                     ElectricArcsEffect, FashionLightningEffect, AdvancedGlitchEffect, DimensionalWarpEffect,
-                    VortexDistortionEffect
+                    VortexDistortionEffect, FloatingText
                 )
                 from src.factories import EffectFactory
                 
@@ -502,97 +753,95 @@ class App(tk.Tk):
                 # otherwise Python treats it as a local and raises UnboundLocalError.
                 audio_source = audio
                 
-                if self.effect_color_pulse.get():
-                    custom_effects.append(ColorPulseEffect(
+                # Get custom duration if specified
+                custom_duration = None
+                duration_str = self.custom_duration.get().strip()
+                if duration_str:
+                    try:
+                        custom_duration = float(duration_str)
+                        if custom_duration <= 0:
+                            raise ValueError("La durata deve essere maggiore di 0")
+                        progress_cb("status", {"message": f"Usando durata personalizzata: {custom_duration} secondi"})
+                    except ValueError as e:
+                        self.after(0, lambda msg=str(e): messagebox.showerror("Errore", f"Durata non valida: {msg}"))
+                        return
+                else:
+                    progress_cb("status", {"message": "Usando durata completa dell'audio"})
+                
+                # Crea dizionario con tutti gli effetti disponibili
+                effects_map = {
+                    "ColorPulse": lambda: ColorPulseEffect(
                         bass_threshold=self.threshold_bass.get(),
                         mid_threshold=self.threshold_mid.get(),
                         high_threshold=self.threshold_high.get(),
                         intensity=self.intensity_color_pulse.get()
-                    ))
-                
-                if self.effect_zoom_pulse.get():
-                    custom_effects.append(ZoomPulseEffect(
+                    ) if self.effect_color_pulse.get() else None,
+                    
+                    "ZoomPulse": lambda: ZoomPulseEffect(
                         threshold=self.threshold_bass.get(),
                         intensity=self.intensity_zoom_pulse.get()
-                    ))
-                
-                if self.effect_strobe.get():
-                    # Default colors for strobe
-                    default_colors = [(1.0, 0.0, 1.0), (0.0, 1.0, 1.0), (1.0, 1.0, 0.0)]
-                    custom_effects.append(StrobeEffect(
-                        colors=default_colors,
+                    ) if self.effect_zoom_pulse.get() else None,
+                    
+                    "Strobe": lambda: StrobeEffect(
+                        colors=[(1.0, 0.0, 1.0), (0.0, 1.0, 1.0), (1.0, 1.0, 0.0)],
                         threshold=0.8,
                         intensity=self.intensity_strobe.get()
-                    ))
-                
-                if self.effect_strobe_negative.get():
-                    custom_effects.append(StrobeNegativeEffect(
+                    ) if self.effect_strobe.get() else None,
+                    
+                    "StrobeNegative": lambda: StrobeNegativeEffect(
                         threshold=0.8,
                         intensity=self.intensity_strobe_negative.get()
-                    ))
-                
-                if self.effect_glitch.get():
-                    custom_effects.append(GlitchEffect(
+                    ) if self.effect_strobe_negative.get() else None,
+                    
+                    "Glitch": lambda: GlitchEffect(
                         threshold=self.threshold_mid.get(),
                         intensity=self.intensity_glitch.get()
-                    ))
-                
-                if self.effect_chromatic.get():
-                    custom_effects.append(ChromaticAberrationEffect(
+                    ) if self.effect_glitch.get() else None,
+                    
+                    "ChromaticAberration": lambda: ChromaticAberrationEffect(
                         threshold=self.threshold_high.get(),
                         intensity=self.intensity_chromatic.get()
-                    ))
-                
-                if self.effect_bubble.get():
-                    custom_effects.append(BubbleDistortionEffect(
+                    ) if self.effect_chromatic.get() else None,
+                    
+                    "BubbleDistortion": lambda: BubbleDistortionEffect(
                         threshold=self.threshold_bass.get(),
                         intensity=self.intensity_bubble.get()
-                    ))
-                
-                if self.effect_screen_shake.get():
-                    custom_effects.append(ScreenShakeEffect(
+                    ) if self.effect_bubble.get() else None,
+                    
+                    "ScreenShake": lambda: ScreenShakeEffect(
                         threshold=self.threshold_mid.get(),
                         intensity=self.intensity_screen_shake.get()
-                    ))
-                
-                if self.effect_rgb_split.get():
-                    custom_effects.append(RGBSplitEffect(
+                    ) if self.effect_screen_shake.get() else None,
+                    
+                    "RGBSplit": lambda: RGBSplitEffect(
                         threshold=self.threshold_high.get(),
                         intensity=self.intensity_rgb_split.get()
-                    ))
-                
-                if self.effect_electric_arcs.get():
-                    # Default colors for electric arcs
-                    default_colors = [(0.0, 1.0, 1.0), (1.0, 0.0, 1.0), (1.0, 1.0, 0.0)]
-                    custom_effects.append(ElectricArcsEffect(
-                        colors=default_colors,
+                    ) if self.effect_rgb_split.get() else None,
+                    
+                    "ElectricArcs": lambda: ElectricArcsEffect(
+                        colors=[(0.0, 1.0, 1.0), (1.0, 0.0, 1.0), (1.0, 1.0, 0.0)],
                         threshold=0.7,
                         intensity=self.intensity_electric_arcs.get()
-                    ))
-                
-                if self.effect_fashion_lightning.get():
-                    # Fashion colors for lightning - more vibrant and trendy
-                    fashion_colors = [(1.0, 0.0, 0.8), (0.0, 0.9, 1.0), (0.8, 1.0, 0.0)]
-                    custom_effects.append(FashionLightningEffect(
-                        colors=fashion_colors,
+                    ) if self.effect_electric_arcs.get() else None,
+                    
+                    "FashionLightning": lambda: FashionLightningEffect(
+                        colors=[(1.0, 0.0, 0.8), (0.0, 0.9, 1.0), (0.8, 1.0, 0.0)],
                         threshold=0.65,
                         branching_probability=0.6,
                         max_branches=5,
                         segment_length_min=5,
                         segment_length_max=20,
                         intensity=self.intensity_fashion_lightning.get()
-                    ))
-                
-                if self.effect_advanced_glitch.get():
-                    custom_effects.append(AdvancedGlitchEffect(
+                    ) if self.effect_fashion_lightning.get() else None,
+                    
+                    "AdvancedGlitch": lambda: AdvancedGlitchEffect(
                         threshold=0.5,
                         channel_shift_amount=8,
                         block_size_range=(10, 80),
                         intensity=self.intensity_advanced_glitch.get()
-                    ))
-                
-                if self.effect_dimensional_warp.get():
-                    custom_effects.append(DimensionalWarpEffect(
+                    ) if self.effect_advanced_glitch.get() else None,
+                    
+                    "DimensionalWarp": lambda: DimensionalWarpEffect(
                         bass_threshold=self.threshold_bass.get(),
                         mid_threshold=self.threshold_mid.get(),
                         warp_strength=45.0,
@@ -601,17 +850,31 @@ class App(tk.Tk):
                         wave_frequency=2.0,
                         layer_count=3,
                         intensity=self.intensity_dimensional_warp.get()
-                    ))
-                
-                if self.effect_vortex_distortion.get():
-                    custom_effects.append(VortexDistortionEffect(
+                    ) if self.effect_dimensional_warp.get() else None,
+                    
+                    "VortexDistortion": lambda: VortexDistortionEffect(
                         threshold=0.2,
                         max_angle=35.0,
                         radius_falloff=1.8,
                         rotation_speed=3.0,
                         smoothing=0.3,
                         intensity=self.intensity_vortex_distortion.get()
-                    ))
+                    ) if self.effect_vortex_distortion.get() else None,
+                    
+                    "FloatingText": lambda: FloatingText(
+                        text=self.floating_text_content.get(),
+                        font_size=self.floating_text_font_size.get(),
+                        color_scheme=self.floating_text_color_scheme.get(),
+                        animation_style=self.floating_text_animation.get()
+                    ) if self.effect_floating_text.get() else None,
+                }
+                
+                # Crea effetti nell'ordine specificato dall'utente
+                for effect_name in self.effect_order:
+                    if effect_name in effects_map:
+                        effect = effects_map[effect_name]()
+                        if effect is not None:
+                            custom_effects.append(effect)
                 
                 # Create custom pipeline
                 custom_pipeline = EffectFactory.create_custom_pipeline(custom_effects)
@@ -631,7 +894,7 @@ class App(tk.Tk):
                     # Analyze audio
                     progress_cb("status", {"message": "Analisi audio..."})
                     audio_analyzer = AudioAnalyzer()
-                    audio_data = audio_analyzer.load_and_analyze(audio_source, duration=None, fps=fps)
+                    audio_data = audio_analyzer.load_and_analyze(audio_source, duration=custom_duration, fps=fps)
                     
                     # Load image - use native resolution if checkbox is selected
                     progress_cb("status", {"message": "Caricamento immagine..."})
@@ -720,7 +983,7 @@ class App(tk.Tk):
                             progress_cb("status", {"message": "Aggiunta audio con moviepy..."})
                             video_clip = VideoFileClip(temp_video_avi)
                             audio_clip = AudioFileClip(audio_source)
-                            final_clip = video_clip.with_audio(audio_clip)
+                            final_clip = video_clip.set_audio(audio_clip)
                             final_clip.write_videofile(output, codec='libx264', audio_codec='aac', logger=None)
                             video_clip.close()
                             audio_clip.close()
@@ -764,18 +1027,32 @@ class App(tk.Tk):
                         raise ValueError("Impossibile leggere il video")
                     
                     # Extract or use provided audio
+                    audio_extracted = False
                     if use_video_audio:
                         # Extract audio from video
                         progress_cb("status", {"message": "Estrazione audio dal video..."})
                         temp_audio = tempfile.mktemp(suffix='.wav', dir=os.path.dirname(output))
+                        
                         try:
+                            # Find ffmpeg
+                            ffmpeg_cmd = 'ffmpeg'
+                            if os.path.exists(r'C:\ffmpeg\bin\ffmpeg.exe'):
+                                ffmpeg_cmd = r'C:\ffmpeg\bin\ffmpeg.exe'
+                            
                             # Try ffmpeg first
-                            subprocess.run([
-                                'ffmpeg', '-y', '-i', video, '-vn', '-acodec', 'pcm_s16le', 
+                            result = subprocess.run([
+                                ffmpeg_cmd, '-y', '-i', video, '-vn', '-acodec', 'pcm_s16le', 
                                 '-ar', '44100', '-ac', '2', temp_audio
-                            ], check=True, capture_output=True)
-                            audio_source = temp_audio
-                        except (subprocess.CalledProcessError, FileNotFoundError):
+                            ], check=True, capture_output=True, text=True)
+                            
+                            # Check if audio file was actually created and has content
+                            if os.path.exists(temp_audio) and os.path.getsize(temp_audio) > 1000:
+                                audio_source = temp_audio
+                                audio_extracted = True
+                                progress_cb("status", {"message": "Audio estratto dal video con successo"})
+                            else:
+                                progress_cb("status", {"message": "Video senza audio, uso file audio fornito"})
+                        except (subprocess.CalledProcessError, FileNotFoundError) as e:
                             # Fallback to moviepy
                             try:
                                 try:
@@ -784,30 +1061,48 @@ class App(tk.Tk):
                                     from moviepy.editor import VideoFileClip
                                 
                                 video_clip = VideoFileClip(video)
-                                video_clip.audio.write_audiofile(temp_audio, logger=None)
+                                
+                                # Check if video has audio
+                                if video_clip.audio is not None:
+                                    video_clip.audio.write_audiofile(temp_audio, logger=None)
+                                    audio_source = temp_audio
+                                    audio_extracted = True
+                                    progress_cb("status", {"message": "Audio estratto dal video con MoviePy"})
+                                else:
+                                    progress_cb("status", {"message": "Video senza audio, uso file audio fornito"})
+                                
                                 video_clip.close()
-                                audio_source = temp_audio
-                            except Exception as e:
-                                if os.path.exists(temp_audio):
-                                    os.remove(temp_audio)
-                                raise ValueError(f"Impossibile estrarre audio dal video: {e}")
+                            except Exception as e2:
+                                progress_cb("status", {"message": f"Impossibile estrarre audio: {str(e2)}, uso file audio fornito"})
+                        
+                        # Clean up temp file if extraction failed
+                        if not audio_extracted and os.path.exists(temp_audio):
+                            try:
+                                os.remove(temp_audio)
+                            except:
+                                pass
                     
-                    # Load and analyze audio
+                    # Load and analyze audio (use custom_duration if specified)
                     progress_cb("status", {"message": "Analisi audio..."})
                     audio_analyzer = AudioAnalyzer()
-                    audio_data = audio_analyzer.load_and_analyze(audio_source, fps=int(video_fps))
+                    audio_data = audio_analyzer.load_and_analyze(audio_source, duration=custom_duration, fps=int(video_fps))
                     audio_duration = len(audio_data.audio_signal) / audio_data.sample_rate
                     
-                    # Calculate frame mapping (without loading frames)
+                    # Calculate frame mapping - ALWAYS based on audio_duration (which respects custom_duration)
                     required_frames = int(audio_duration * video_fps)
+                    print(f"[DEBUG] audio_duration={audio_duration:.2f}s, video_fps={video_fps}, required_frames={required_frames}, available_frames={available_frames}")
+                    if custom_duration:
+                        progress_cb("status", {"message": f"Usando durata personalizzata: {custom_duration}s = {required_frames} frame"})
                     
                     if required_frames <= available_frames:
                         frame_indices = list(range(required_frames))
+                        print(f"[DEBUG] Case 1: Sequential, frame_indices length={len(frame_indices)}, first 10={frame_indices[:10]}")
                     elif short_mode == "loop":
                         frame_indices = []
                         while len(frame_indices) < required_frames:
                             remaining = required_frames - len(frame_indices)
                             frame_indices.extend(range(min(available_frames, remaining)))
+                        print(f"[DEBUG] Case 2: Loop, frame_indices length={len(frame_indices)}, first 10={frame_indices[:10]}, last 10={frame_indices[-10:]}")
                     else:  # stretch
                         stretch_factor = required_frames / available_frames
                         frame_indices = []
@@ -817,11 +1112,12 @@ class App(tk.Tk):
                                 repeat_count += 1
                             frame_indices.extend([i] * repeat_count)
                         frame_indices = frame_indices[:required_frames]
+                        print(f"[DEBUG] Case 3: Stretch, stretch_factor={stretch_factor}, frame_indices length={len(frame_indices)}, first 10={frame_indices[:10]}, last 10={frame_indices[-10:]}")
                     
                     # Process video with streaming (frame by frame)
                     total_frames = len(frame_indices)
                     progress_cb("start", {"total_frames": total_frames})
-                    progress_cb("status", {"message": "Processing video con streaming..."})
+                    progress_cb("status", {"message": f"Processing {total_frames} frame con modalità '{short_mode}'..."})
                     
                     # Load logo if provided
                     logo_img = None
@@ -838,46 +1134,35 @@ class App(tk.Tk):
                         except Exception as e:
                             progress_cb("status", {"message": f"Errore caricamento logo: {e}"})
                     
-                    # Initialize video writer for direct streaming (use AVI temp)
-                    temp_video_avi = tempfile.mktemp(suffix='_temp.avi', dir=os.path.dirname(output))
-                    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-                    writer = cv2.VideoWriter(temp_video_avi, fourcc, int(video_fps), (width, height))
+                    # First, load ALL video frames into memory (to avoid seek issues)
+                    print(f"[DEBUG] Loading all {available_frames} video frames into memory...")
+                    progress_cb("status", {"message": f"Caricamento {available_frames} frame dal video..."})
                     
-                    # Cache for loop mode - store only necessary frames
-                    frame_cache = {}
-                    last_frame_idx = -1
-                    cached_frame = None
+                    video_frames = []
+                    for i in range(available_frames):
+                        ret, frame = cap.read()
+                        if ret:
+                            video_frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                        else:
+                            print(f"[WARNING] Failed to read frame {i}")
+                            break
+                    
+                    cap.release()
+                    print(f"[DEBUG] Loaded {len(video_frames)} frames from video")
+                    
+                    # Now process frames according to frame_indices
+                    print(f"[DEBUG] Processing {len(frame_indices)} frames with effects...")
+                    all_frames = []
                     
                     for idx, frame_idx in enumerate(frame_indices):
                         progress_cb("frame", {"index": idx + 1, "total": total_frames})
                         
-                        # Load frame only if needed (optimize for sequential and loop access)
-                        if frame_idx in frame_cache:
-                            # Get from cache (for loop mode)
-                            base_frame = frame_cache[frame_idx].copy()
-                        elif frame_idx == last_frame_idx and cached_frame is not None:
-                            # Reuse last frame (for stretch mode with repeated frames)
-                            base_frame = cached_frame.copy()
+                        # Get base frame from loaded frames
+                        if frame_idx < len(video_frames):
+                            base_frame = video_frames[frame_idx].copy()
                         else:
-                            # Seek and read frame from video
-                            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-                            ret, frame = cap.read()
-                            if not ret:
-                                # Fallback to last cached frame or black frame
-                                if cached_frame is not None:
-                                    base_frame = cached_frame.copy()
-                                else:
-                                    base_frame = np.zeros((height, width, 3), dtype=np.uint8)
-                            else:
-                                base_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                                
-                                # Cache frame if in loop mode and not too many cached
-                                if short_mode == "loop" and len(frame_cache) < 300:
-                                    frame_cache[frame_idx] = base_frame.copy()
-                        
-                        # Update cache for stretch mode
-                        cached_frame = base_frame.copy()
-                        last_frame_idx = frame_idx
+                            # Fallback to last frame
+                            base_frame = video_frames[-1].copy() if video_frames else np.zeros((height, width, 3), dtype=np.uint8)
                         
                         # Apply effects directly on the current frame
                         from src.models.data_models import FrameContext
@@ -914,57 +1199,48 @@ class App(tk.Tk):
                         if logo_img is not None:
                             frame_with_effects = apply_logo_to_frame(frame_with_effects, logo_img, logo_pos, logo_sc, logo_op, logo_mg)
                         
-                        # Write directly to video (convert back to BGR)
-                        writer.write(cv2.cvtColor(frame_with_effects, cv2.COLOR_RGB2BGR))
+                        # Store frame (RGB for MoviePy)
+                        all_frames.append(frame_with_effects.copy())
+                        
+                        # Debug: save some frames
+                        if idx in [0, 30, 60, 90, 120]:
+                            debug_path = os.path.join(os.path.dirname(output), f"debug_moviepy_frame_{idx}.png")
+                            cv2.imwrite(debug_path, cv2.cvtColor(frame_with_effects, cv2.COLOR_RGB2BGR))
+                            print(f"[DEBUG] Saved frame {idx} to {debug_path}")
                         
                         # Clear frame to free memory
                         del base_frame
                         del frame_with_effects
                     
-                    # Release resources
-                    cap.release()
-                    writer.release()
-                    frame_cache.clear()
+                    # Release resources (cap already released)
+                    video_frames.clear()
                     
-                    # Add audio to video
-                    progress_cb("status", {"message": "Aggiunta audio al video..."})
+                    # Create video with MoviePy
+                    print(f"[DEBUG] Creating video from {len(all_frames)} frames with MoviePy...")
+                    progress_cb("status", {"message": "Creazione video con MoviePy..."})
                     
-                    audio_added = False
-                    
-                    # Try ffmpeg first (fastest)
                     try:
-                        result = subprocess.run([
-                            'ffmpeg', '-y', '-i', temp_video_avi, '-i', audio_source,
-                            '-c:v', 'libx264', '-c:a', 'aac', '-shortest', output
-                        ], check=True, capture_output=True)
-                        os.remove(temp_video_avi)
-                        audio_added = True
-                    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-                        # Fallback to moviepy
-                        try:
-                            # Try MoviePy 2.x import first
-                            try:
-                                from moviepy import VideoFileClip, AudioFileClip
-                            except ImportError:
-                                from moviepy.editor import VideoFileClip, AudioFileClip
-                            
-                            progress_cb("status", {"message": "Aggiunta audio con moviepy..."})
-                            video_clip = VideoFileClip(temp_video_avi)
-                            audio_clip = AudioFileClip(audio_source)
-                            final_clip = video_clip.with_audio(audio_clip)
-                            final_clip.write_videofile(output, codec='libx264', audio_codec='aac', logger=None)
-                            video_clip.close()
-                            audio_clip.close()
-                            final_clip.close()
-                            os.remove(temp_video_avi)
-                            audio_added = True
-                        except Exception as e2:
-                            # Last resort: convert video without audio
-                            try:
-                                subprocess.run(['ffmpeg', '-y', '-i', temp_video_avi, '-c:v', 'libx264', output], check=False)
-                                os.remove(temp_video_avi)
-                            except:
-                                pass
+                        from moviepy import ImageSequenceClip, AudioFileClip
+                    except ImportError:
+                        from moviepy.editor import ImageSequenceClip, AudioFileClip
+                    
+                    video_clip = ImageSequenceClip(all_frames, fps=video_fps)
+                    audio_clip = AudioFileClip(audio_source)
+                    
+                    # Sync video and audio duration
+                    if audio_clip.duration > video_clip.duration:
+                        audio_clip = audio_clip.subclip(0, video_clip.duration)
+                    elif video_clip.duration > audio_clip.duration:
+                        video_clip = video_clip.subclip(0, audio_clip.duration)
+                    
+                    final_clip = video_clip.set_audio(audio_clip)
+                    final_clip.write_videofile(output, codec='libx264', audio_codec='aac', fps=video_fps, logger=None)
+                    
+                    video_clip.close()
+                    audio_clip.close()
+                    final_clip.close()
+                    
+                    print(f"[DEBUG] Video created successfully!")
                     
                     progress_cb("done", {"output": output})
                     

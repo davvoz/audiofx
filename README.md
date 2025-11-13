@@ -269,6 +269,72 @@ Advanced color/threshold presets live in `config.py`. The GUI maps user‑friend
   - Mix e DJ set
   - Quando vuoi il massimo risultato senza tweaking
 
+#### ✨ **Floating Text** (NEW!)
+- **Testo fluttuante animato a tempo di musica**
+- **Completamente personalizzabile dall'utente**
+- **5 schemi colore disponibili:**
+  - 🌈 **Rainbow**: Colori arcobaleno che cambiano con gli alti
+  - 🔥 **Fire**: Colori caldi (rosso, arancione) basati sui bassi
+  - ❄️ **Ice**: Colori freddi (blu, cyan) per atmosfere chill
+  - 💜 **Neon**: Colori neon vibranti con alternanza
+  - 🏆 **Gold**: Oro brillante per testi luxury
+- **5 stili di animazione:**
+  - 🌊 **Wave**: Lettere con movimento ondulato
+  - 🎾 **Bounce**: Lettere che rimbalzano separatamente
+  - 🔄 **Spin**: Rotazione completa del testo
+  - 💓 **Pulse**: Pulsazione semplice sulla scala
+  - ⚡ **Glitch**: Effetto glitch con split RGB
+- **Caratteristiche avanzate:**
+  - Movimento fluido nello spazio basato sui medi
+  - Scala dinamica sincronizzata con i bassi
+  - Glow pulsante che reagisce all'energia
+  - Font personalizzabile (dimensione e tipo)
+  - Distorsione a onda per effetti liquidi
+- **Facile da usare:**
+  - Interfaccia GUI intuitiva
+  - Inserisci il tuo testo personalizzato
+  - Scegli colori e animazione
+  - Regola dimensione font (50-300px)
+- **Preset rapidi disponibili:**
+  - Party (rainbow wave)
+  - Fire (colori caldi bounce)
+  - Neon (glitch)
+  - Ice (colori freddi spin)
+  - Minimal (bianco pulsante)
+
+**Uso dalla GUI:**
+1. Apri `gui.py`
+2. Seleziona tab "Custom Preset"
+3. Abilita checkbox "FloatingText"
+4. Configura testo, colori e animazione nella sezione dedicata
+5. Genera il video!
+
+**Uso programmatico:**
+
+```python
+from src.factories.effect_factory import EffectFactory
+from src.models.data_models import EffectConfig
+
+config = EffectConfig()
+
+# Metodo 1: Usa la factory
+pipeline = EffectFactory.create_floating_text_pipeline(
+    config=config,
+    text="YOUR TEXT",
+    font_size=140,
+    color_scheme="rainbow",  # rainbow, fire, ice, neon, gold
+    animation_style="wave"   # wave, bounce, spin, pulse, glitch
+)
+
+# Metodo 2: Usa i preset builder
+from src.factories.floating_text_pipeline_builder import FloatingTextPipelineBuilder
+
+pipeline = FloatingTextPipelineBuilder.build_party(config, text="PARTY TIME")
+# Oppure: build_fire, build_neon, build_ice, build_minimal
+```
+
+Vedi `test_floating_text.py` per esempi completi e tutti i preset disponibili.
+
 **Uso del preset Psychedelic Refraction:**
 
 ```python

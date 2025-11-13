@@ -15,6 +15,7 @@ from .industrial_pipeline_builder import IndustrialPipelineBuilder
 from .acid_house_pipeline_builder import AcidHousePipelineBuilder
 from .retro_wave_pipeline_builder import RetroWavePipelineBuilder
 from .horror_pipeline_builder import HorrorPipelineBuilder
+from .floating_text_pipeline_builder import FloatingTextPipelineBuilder
 
 
 class EffectFactory:
@@ -96,6 +97,32 @@ class EffectFactory:
     def create_horror_pipeline(config: EffectConfig) -> EffectPipeline:
         """Create horror effect pipeline."""
         return HorrorPipelineBuilder.build(config)
+    
+    @staticmethod
+    def create_floating_text_pipeline(config: EffectConfig, text: str = "MUSIC",
+                                     font_size: int = 120,
+                                     color_scheme: str = "rainbow",
+                                     animation_style: str = "wave") -> EffectPipeline:
+        """
+        Create floating text effect pipeline.
+        
+        Args:
+            config: Effect configuration
+            text: Text to display
+            font_size: Base font size
+            color_scheme: Color scheme ('rainbow', 'fire', 'ice', 'neon', 'gold')
+            animation_style: Animation style ('wave', 'bounce', 'spin', 'pulse', 'glitch')
+            
+        Returns:
+            EffectPipeline with floating text
+        """
+        return FloatingTextPipelineBuilder.build(
+            config=config,
+            text=text,
+            font_size=font_size,
+            color_scheme=color_scheme,
+            animation_style=animation_style
+        )
     
     @staticmethod
     def create_custom_pipeline(effects: List[BaseEffect]) -> EffectPipeline:

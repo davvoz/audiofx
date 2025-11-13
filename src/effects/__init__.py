@@ -20,6 +20,7 @@ from .fashion_lightning import FashionLightningEffect
 from .advanced_glitch import AdvancedGlitchEffect
 from .dimensional_warp import DimensionalWarpEffect
 from .vortex_distortion import VortexDistortionEffect
+from .floating_text import FloatingText
 
 __all__ = [
     # Base classes
@@ -40,4 +41,5 @@ __all__ = [
     'AdvancedGlitchEffect',
     'DimensionalWarpEffect',
     'VortexDistortionEffect',
+    'FloatingText',
 ]
