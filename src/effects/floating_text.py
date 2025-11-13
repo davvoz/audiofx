@@ -26,7 +26,9 @@ class FloatingText(BaseEffect):
                  font_path: Optional[str] = None,
                  color_scheme: str = "rainbow",
                  animation_style: str = "wave",
-                 intensity: float = 1.0):
+                 intensity: float = 1.0,
+                 start_time: Optional[float] = None,
+                 end_time: Optional[float] = None):
         """
         Args:
             text: Testo da visualizzare
@@ -35,6 +37,8 @@ class FloatingText(BaseEffect):
             color_scheme: Schema colori ('rainbow', 'fire', 'ice', 'neon', 'gold')
             animation_style: Stile animazione ('wave', 'bounce', 'spin', 'pulse', 'glitch')
             intensity: Intensità effetto (0.0-2.0)
+            start_time: Tempo in secondi quando il testo inizia ad apparire (None = dall'inizio)
+            end_time: Tempo in secondi quando il testo scompare (None = fino alla fine)
         """
         super().__init__(intensity=intensity)
         self.text = text.upper()
@@ -42,6 +46,8 @@ class FloatingText(BaseEffect):
         self.font_path = font_path
         self.color_scheme = color_scheme
         self.animation_style = animation_style
+        self.start_time = start_time
+        self.end_time = end_time
         
         # Variabili di stato per animazioni fluide
         self.position_x = 0.5  # Inizia al centro
@@ -264,6 +270,17 @@ class FloatingText(BaseEffect):
     
     def process(self, frame: np.ndarray, context: FrameContext) -> np.ndarray:
         """Applica l'effetto di testo fluttuante"""
+        # Controlla se il testo deve essere visibile in questo momento
+        current_time = context.time
+        
+        # Se start_time è specificato e non abbiamo ancora raggiunto quel tempo, non mostrare il testo
+        if self.start_time is not None and current_time < self.start_time:
+            return frame
+        
+        # Se end_time è specificato e lo abbiamo superato, non mostrare il testo
+        if self.end_time is not None and current_time > self.end_time:
+            return frame
+        
         # Estrai features dal context
         bass = context.bass * self.intensity
         mid = context.mid * self.intensity

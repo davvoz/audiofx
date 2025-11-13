@@ -78,6 +78,8 @@ class CustomPresetView(ttk.Frame):
         self.floating_text_color_var = tk.StringVar(value=ftc.color_scheme)
         self.floating_text_animation_var = tk.StringVar(value=ftc.animation)
         self.floating_text_font_size_var = tk.IntVar(value=ftc.font_size)
+        self.floating_text_start_time_var = tk.StringVar(value=ftc.start_time)
+        self.floating_text_end_time_var = tk.StringVar(value=ftc.end_time)
     
     def _build_ui(self):
         """Build the complete UI in 2-column layout."""
@@ -337,26 +339,54 @@ class CustomPresetView(ttk.Frame):
         text_frame.pack(fill=tk.X, pady=self.theme.spacing.sm)
         
         LabeledEntry(
-            text_frame, "Testo:", self.floating_text_content_var, width=20
+            text_frame, "Testo:", self.floating_text_content_var, width=30
         ).pack(fill=tk.X, pady=self.theme.spacing.xs)
         
-        # Color and animation
-        settings_frame = ttk.Frame(section)
-        settings_frame.pack(fill=tk.X, pady=self.theme.spacing.sm)
+        # Create 2-column layout for settings and duration
+        columns_container = ttk.Frame(section)
+        columns_container.pack(fill=tk.X, pady=self.theme.spacing.sm)
+        
+        # Left column: Color, animation, font size
+        left_col = ttk.Frame(columns_container)
+        left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, 
+                     padx=(0, self.theme.spacing.md))
         
         LabeledCombobox(
-            settings_frame, "Colori:", self.floating_text_color_var,
+            left_col, "Colori:", self.floating_text_color_var,
             ["rainbow", "fire", "ice", "neon", "gold", "default"]
         ).pack(fill=tk.X, pady=self.theme.spacing.xs)
         
         LabeledCombobox(
-            settings_frame, "Animazione:", self.floating_text_animation_var,
+            left_col, "Animazione:", self.floating_text_animation_var,
             ["wave", "bounce", "spin", "pulse", "glitch"]
         ).pack(fill=tk.X, pady=self.theme.spacing.xs)
         
         LabeledSpinbox(
-            settings_frame, "Font Size:", self.floating_text_font_size_var,
+            left_col, "Font Size:", self.floating_text_font_size_var,
             from_=50, to=300
+        ).pack(fill=tk.X, pady=self.theme.spacing.xs)
+        
+        # Right column: Duration controls
+        right_col = ttk.Frame(columns_container)
+        right_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
+                      padx=(self.theme.spacing.md, 0))
+        
+        # Duration header
+        duration_label = ttk.Label(
+            right_col, 
+            text="Durata Testo (lascia vuoto per tutta la durata)",
+            font=(self.theme.typography.font_family, 
+                  self.theme.typography.font_size_small),
+            foreground="gray"
+        )
+        duration_label.pack(fill=tk.X, pady=(0, self.theme.spacing.xs))
+        
+        LabeledEntry(
+            right_col, "Inizio (sec):", self.floating_text_start_time_var, width=15
+        ).pack(fill=tk.X, pady=self.theme.spacing.xs)
+        
+        LabeledEntry(
+            right_col, "Fine (sec):", self.floating_text_end_time_var, width=15
         ).pack(fill=tk.X, pady=self.theme.spacing.xs)
     
     def _build_effect_order_section(self, parent):
@@ -540,3 +570,5 @@ class CustomPresetView(ttk.Frame):
         ftc.color_scheme = self.floating_text_color_var.get()
         ftc.animation = self.floating_text_animation_var.get()
         ftc.font_size = self.floating_text_font_size_var.get()
+        ftc.start_time = self.floating_text_start_time_var.get()
+        ftc.end_time = self.floating_text_end_time_var.get()

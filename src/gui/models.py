@@ -52,6 +52,8 @@ class FloatingTextConfig:
     color_scheme: str = "rainbow"
     animation: str = "wave"
     font_size: int = 120
+    start_time: str = ""  # Tempo di inizio in secondi (vuoto = dall'inizio)
+    end_time: str = ""    # Tempo di fine in secondi (vuoto = fino alla fine)
 
 
 @dataclass

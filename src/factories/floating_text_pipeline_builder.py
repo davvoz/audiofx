@@ -15,7 +15,9 @@ class FloatingTextPipelineBuilder:
               font_size: int = 120,
               color_scheme: str = "rainbow",
               animation_style: str = "wave",
-              add_background_effects: bool = True) -> EffectPipeline:
+              add_background_effects: bool = True,
+              start_time: float = None,
+              end_time: float = None) -> EffectPipeline:
         """
         Crea una pipeline con floating text.
         
@@ -26,6 +28,8 @@ class FloatingTextPipelineBuilder:
             color_scheme: Schema colori ('rainbow', 'fire', 'ice', 'neon', 'gold')
             animation_style: Stile animazione ('wave', 'bounce', 'spin', 'pulse', 'glitch')
             add_background_effects: Se True, aggiunge effetti di background sottili
+            start_time: Tempo in secondi quando il testo inizia ad apparire (None = dall'inizio)
+            end_time: Tempo in secondi quando il testo scompare (None = fino alla fine)
             
         Returns:
             EffectPipeline configurata
@@ -45,7 +49,9 @@ class FloatingTextPipelineBuilder:
             text=text,
             font_size=font_size,
             color_scheme=color_scheme,
-            animation_style=animation_style
+            animation_style=animation_style,
+            start_time=start_time,
+            end_time=end_time
         )
         pipeline.add_effect(floating_text)
         

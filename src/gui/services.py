@@ -167,7 +167,9 @@ class EffectFactoryService:
                 text=effects_config.floating_text_config.content,
                 font_size=effects_config.floating_text_config.font_size,
                 color_scheme=effects_config.floating_text_config.color_scheme,
-                animation_style=effects_config.floating_text_config.animation
+                animation_style=effects_config.floating_text_config.animation,
+                start_time=float(effects_config.floating_text_config.start_time) if effects_config.floating_text_config.start_time else None,
+                end_time=float(effects_config.floating_text_config.end_time) if effects_config.floating_text_config.end_time else None
             ),
         }
         
