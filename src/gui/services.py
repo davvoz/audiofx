@@ -81,7 +81,7 @@ class EffectFactoryService:
             GlitchEffect, ChromaticAberrationEffect, BubbleDistortionEffect,
             ScreenShakeEffect, RGBSplitEffect, ElectricArcsEffect,
             FashionLightningEffect, AdvancedGlitchEffect, DimensionalWarpEffect,
-            VortexDistortionEffect, FloatingText
+            VortexDistortionEffect, FloatingText, GhostParticlesEffect
         )
         
         # Map effect names to factory functions
@@ -170,6 +170,13 @@ class EffectFactoryService:
                 animation_style=effects_config.floating_text_config.animation,
                 start_time=float(effects_config.floating_text_config.start_time) if effects_config.floating_text_config.start_time else None,
                 end_time=float(effects_config.floating_text_config.end_time) if effects_config.floating_text_config.end_time else None
+            ),
+            "GhostParticles": lambda: GhostParticlesEffect(
+                sample_density=18,
+                explosion_threshold=0.5,
+                particle_lifetime=70.0,
+                max_particles=600,
+                intensity=effects_config.effects["GhostParticles"].intensity
             ),
         }
         

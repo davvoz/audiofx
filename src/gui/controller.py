@@ -134,7 +134,7 @@ class CustomPresetController:
             "ColorPulse", "ZoomPulse", "Strobe", "StrobeNegative", "Glitch",
             "ChromaticAberration", "BubbleDistortion", "ScreenShake", "RGBSplit",
             "ElectricArcs", "FashionLightning", "AdvancedGlitch",
-            "DimensionalWarp", "VortexDistortion", "FloatingText"
+            "DimensionalWarp", "VortexDistortion", "FloatingText", "GhostParticles"
         ]
         self.view.refresh_order_listbox()
     
