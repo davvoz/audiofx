@@ -896,6 +896,10 @@ class App(tk.Tk):
                     audio_analyzer = AudioAnalyzer()
                     audio_data = audio_analyzer.load_and_analyze(audio_source, duration=custom_duration, fps=fps)
                     
+                    # Debug
+                    audio_duration = len(audio_data.audio_signal) / audio_data.sample_rate
+                    print(f"[DEBUG IMAGE MODE] custom_duration={custom_duration}, audio_duration={audio_duration:.2f}s, num_frames={len(audio_data.bass_energy)}")
+                    
                     # Load image - use native resolution if checkbox is selected
                     progress_cb("status", {"message": "Caricamento immagine..."})
                     target_res = None if self.use_native_resolution.get() else (720, 720)
@@ -963,11 +967,15 @@ class App(tk.Tk):
                     
                     audio_added = False
                     
-                    # Try ffmpeg first (fastest)
+                    # Calculate actual video duration based on number of frames
+                    video_duration = num_frames / fps
+                    
+                    # Try ffmpeg first (fastest) - trim audio to match video duration
                     try:
                         result = subprocess.run([
                             'ffmpeg', '-y', '-i', temp_video_avi, '-i', audio_source,
-                            '-c:v', 'libx264', '-c:a', 'aac', '-shortest', output
+                            '-t', str(video_duration),  # Limit audio duration to match video
+                            '-c:v', 'libx264', '-c:a', 'aac', output
                         ], check=True, capture_output=True)
                         os.remove(temp_video_avi)
                         audio_added = True
@@ -983,6 +991,8 @@ class App(tk.Tk):
                             progress_cb("status", {"message": "Aggiunta audio con moviepy..."})
                             video_clip = VideoFileClip(temp_video_avi)
                             audio_clip = AudioFileClip(audio_source)
+                            # Trim audio to match video duration
+                            audio_clip = audio_clip.subclip(0, video_duration)
                             final_clip = video_clip.set_audio(audio_clip)
                             final_clip.write_videofile(output, codec='libx264', audio_codec='aac', logger=None)
                             video_clip.close()
