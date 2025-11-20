@@ -25,6 +25,9 @@ class EffectStyle(Enum):
     ACID_HOUSE = "acid_house"         # Acid House
     RETRO_WAVE = "retro_wave"         # Retro Wave
     HORROR = "horror"                  # Horror
+    TEXTURE_FLOW = "texture_flow"      # Texture Flow (Slow Rhythm)
+    INTENSE_TEXTURE_FLOW = "intense_texture_flow"  # Intense Texture Flow
+    MINIMAL_TEXTURE_FLOW = "minimal_texture_flow"  # Minimal Texture Flow
 
 
 class SectionType(Enum):

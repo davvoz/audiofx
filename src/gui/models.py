@@ -89,6 +89,7 @@ class EffectsConfiguration:
             "VortexDistortion": EffectSettings(enabled=False, intensity=1.0),
             "FloatingText": EffectSettings(enabled=False, intensity=1.0),
             "GhostParticles": EffectSettings(enabled=False, intensity=1.0),
+            "TextureStretch": EffectSettings(enabled=False, intensity=1.0),
         }
         self.effects = default_effects
     

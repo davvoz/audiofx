@@ -16,6 +16,11 @@ from .acid_house_pipeline_builder import AcidHousePipelineBuilder
 from .retro_wave_pipeline_builder import RetroWavePipelineBuilder
 from .horror_pipeline_builder import HorrorPipelineBuilder
 from .floating_text_pipeline_builder import FloatingTextPipelineBuilder
+from .texture_flow_pipeline_builder import (
+    TextureFlowPipelineBuilder,
+    IntenseTextureFlowPipelineBuilder,
+    MinimalTextureFlowPipelineBuilder
+)
 
 
 class EffectFactory:
@@ -123,6 +128,45 @@ class EffectFactory:
             color_scheme=color_scheme,
             animation_style=animation_style
         )
+    
+    @staticmethod
+    def create_texture_flow_pipeline(config: EffectConfig) -> EffectPipeline:
+        """
+        Create texture flow effect pipeline with slow-rhythm stretching (4x slower).
+        
+        Args:
+            config: Effect configuration
+            
+        Returns:
+            EffectPipeline with texture flow effects
+        """
+        return TextureFlowPipelineBuilder.build(config)
+    
+    @staticmethod
+    def create_intense_texture_flow_pipeline(config: EffectConfig) -> EffectPipeline:
+        """
+        Create intense texture flow effect pipeline with dramatic stretching.
+        
+        Args:
+            config: Effect configuration
+            
+        Returns:
+            EffectPipeline with intense texture flow effects
+        """
+        return IntenseTextureFlowPipelineBuilder.build(config)
+    
+    @staticmethod
+    def create_minimal_texture_flow_pipeline(config: EffectConfig) -> EffectPipeline:
+        """
+        Create minimal texture flow effect pipeline focusing on pure stretching.
+        
+        Args:
+            config: Effect configuration
+            
+        Returns:
+            EffectPipeline with minimal texture flow effects
+        """
+        return MinimalTextureFlowPipelineBuilder.build(config)
     
     @staticmethod
     def create_custom_pipeline(effects: List[BaseEffect]) -> EffectPipeline:

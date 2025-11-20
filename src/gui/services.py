@@ -81,7 +81,8 @@ class EffectFactoryService:
             GlitchEffect, ChromaticAberrationEffect, BubbleDistortionEffect,
             ScreenShakeEffect, RGBSplitEffect, ElectricArcsEffect,
             FashionLightningEffect, AdvancedGlitchEffect, DimensionalWarpEffect,
-            VortexDistortionEffect, FloatingText, GhostParticlesEffect
+            VortexDistortionEffect, FloatingText, GhostParticlesEffect,
+            TextureStretchEffect
         )
         
         # Map effect names to factory functions
@@ -177,6 +178,17 @@ class EffectFactoryService:
                 particle_lifetime=70.0,
                 max_particles=600,
                 intensity=effects_config.effects["GhostParticles"].intensity
+            ),
+            "TextureStretch": lambda: TextureStretchEffect(
+                bass_threshold=0.25,
+                mid_threshold=0.2,
+                max_stretch=45.0,
+                wave_complexity=3,
+                flow_speed=0.15,
+                stretch_smoothness=0.92,
+                direction_change_speed=0.08,
+                texture_grain=2.0,
+                intensity=effects_config.effects["TextureStretch"].intensity
             ),
         }
         

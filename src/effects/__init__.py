@@ -22,6 +22,7 @@ from .dimensional_warp import DimensionalWarpEffect
 from .vortex_distortion import VortexDistortionEffect
 from .floating_text import FloatingText
 from .ghost_particles import GhostParticlesEffect
+from .texture_stretch import TextureStretchEffect
 
 __all__ = [
     # Base classes
@@ -44,4 +45,5 @@ __all__ = [
     'VortexDistortionEffect',
     'FloatingText',
     'GhostParticlesEffect',
+    'TextureStretchEffect',
 ]

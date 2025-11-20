@@ -34,6 +34,9 @@ class EffectStyleManager:
         self.pipelines[EffectStyle.ACID_HOUSE] = EffectFactory.create_acid_house_pipeline(self.config)
         self.pipelines[EffectStyle.RETRO_WAVE] = EffectFactory.create_retro_wave_pipeline(self.config)
         self.pipelines[EffectStyle.HORROR] = EffectFactory.create_horror_pipeline(self.config)
+        self.pipelines[EffectStyle.TEXTURE_FLOW] = EffectFactory.create_texture_flow_pipeline(self.config)
+        self.pipelines[EffectStyle.INTENSE_TEXTURE_FLOW] = EffectFactory.create_intense_texture_flow_pipeline(self.config)
+        self.pipelines[EffectStyle.MINIMAL_TEXTURE_FLOW] = EffectFactory.create_minimal_texture_flow_pipeline(self.config)
         # SOLIDS_3D and INTELLIGENT styles can be added here when implemented
     
     def get_pipeline(self, style: EffectStyle) -> EffectPipeline:
