@@ -147,8 +147,9 @@ class VortexDistortionEffect(BaseEffect):
         new_x = np.ascontiguousarray(new_x, dtype=np.float32)
         new_y = np.ascontiguousarray(new_y, dtype=np.float32)
         
-        # Apply remap to create vortex distortion with cubic interpolation for smoother result
-        distorted = cv2.remap(frame, new_x, new_y, cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT)
+        # Apply remap to create vortex distortion
+        # Use LINEAR interpolation instead of CUBIC for 3-4x speedup
+        distorted = cv2.remap(frame, new_x, new_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
         
         # Blend with original based on effect strength for smoother transition
         if effect_strength < 1.0:

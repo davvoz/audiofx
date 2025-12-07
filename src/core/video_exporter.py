@@ -61,12 +61,16 @@ class VideoExporter:
         os.makedirs(temp_dir, exist_ok=True)
         
         try:
-            # Save frames as temporary images
+            # Save frames as temporary images (using JPEG for speed)
             frame_paths = []
+            # Batch processing for better performance
+            save_quality = 95  # JPEG quality
+            
             for i, frame in enumerate(frames):
-                path = os.path.join(temp_dir, f"frame_{i:06d}.png")
-                # Convert RGB to BGR for OpenCV
-                cv2.imwrite(path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                path = os.path.join(temp_dir, f"frame_{i:06d}.jpg")
+                # Convert RGB to BGR for OpenCV and save as JPEG (10x faster than PNG)
+                cv2.imwrite(path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR), 
+                           [cv2.IMWRITE_JPEG_QUALITY, save_quality])
                 frame_paths.append(path)
                 
                 if progress_cb and i % 30 == 0:

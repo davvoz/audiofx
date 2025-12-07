@@ -103,10 +103,17 @@ class VideoGenerationService:
             fps=config.fps
         )
         
-        # Generate frames
+        # Generate frames using parallel processing
         num_frames = len(audio_data.bass_energy)
         self._emit_event('start', {'total_frames': num_frames})
-        self._emit_event('status', {'message': "Generazione frame..."})
+        self._emit_event('status', {'message': "Generazione frame (multiprocessing)..."})
+        
+        # Use parallel frame generation
+        frames = frame_generator.generate_frames_parallel(
+            audio_analysis=audio_data,
+            num_frames=num_frames,
+            progress_cb=self._emit_event
+        )
         
         # Load logo if provided
         logo_img = None
@@ -122,19 +129,14 @@ class VideoGenerationService:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
         writer = cv2.VideoWriter(temp_video_avi, fourcc, config.fps, (width, height))
         
-        for idx in range(num_frames):
+        for idx, frame in enumerate(frames):
             if self._cancel_requested:
                 writer.release()
                 os.remove(temp_video_avi)
                 return
             
-            self._emit_event('frame', {'index': idx + 1, 'total': num_frames})
-            
-            frame = frame_generator.generate_frame(
-                frame_index=idx,
-                audio_analysis=audio_data,
-                color_index=idx % 6
-            )
+            if idx % 30 == 0:
+                self._emit_event('status', {'message': f"Scrivendo frame {idx}/{num_frames}..."})
             
             # Apply logo
             if logo_img is not None:

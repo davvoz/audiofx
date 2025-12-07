@@ -52,6 +52,9 @@ class AudioVisualFX:
         logo_opacity: float = 1.0,
         logo_margin: int = 12,
         config: Optional[dict] = None,  # Full preset configuration
+        # Performance options
+        use_multiprocessing: bool = True,
+        num_workers: Optional[int] = None,
     ) -> None:
         self.audio_file = audio_file
         self.image_file = image_file
@@ -59,6 +62,8 @@ class AudioVisualFX:
         self.fps = fps
         self.duration = duration
         self.progress_cb = progress_cb
+        self.use_multiprocessing = use_multiprocessing
+        self.num_workers = num_workers
         
         # Store full config and read transition_duration if available
         self._config = config or {}

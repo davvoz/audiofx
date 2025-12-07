@@ -29,6 +29,10 @@ def main() -> None:
     parser.add_argument("--logo-scale", type=float, default=0.15, help="Larghezza del logo rispetto al frame (0-1)")
     parser.add_argument("--logo-opacity", type=float, default=1.0, help="Opacità del logo (0-1)")
     parser.add_argument("--logo-margin", type=int, default=12, help="Margine del logo dai bordi in pixel")
+    # Performance options
+    parser.add_argument("--no-multiprocessing", action="store_true", 
+                       help="Disabilita multiprocessing (più lento ma usa meno RAM)")
+    parser.add_argument("--workers", type=int, help="Numero di worker paralleli (default: CPU count - 1)")
 
     args = parser.parse_args()
 
@@ -67,6 +71,8 @@ def main() -> None:
         logo_scale=args.logo_scale,
         logo_opacity=args.logo_opacity,
         logo_margin=args.logo_margin,
+        use_multiprocessing=not args.no_multiprocessing,
+        num_workers=args.workers
     )
 
     try:

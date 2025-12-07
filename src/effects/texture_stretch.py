@@ -138,6 +138,10 @@ class TextureStretchEffect(BaseEffect):
             if random.random() > 0.7:
                 self._random_wave_offset += random.uniform(-np.pi/4, np.pi/4)
     
+    def _should_regenerate_cache(self, shape: tuple) -> bool:
+        """Check if coordinate cache needs regeneration."""
+        return self._map_cache is None or self._last_shape != shape
+    
     def _create_multi_directional_stretch(self,
                                           frame: np.ndarray,
                                           stretch_intensity: float,
@@ -257,8 +261,8 @@ class TextureStretchEffect(BaseEffect):
         map_x = np.ascontiguousarray(map_x, dtype=np.float32)
         map_y = np.ascontiguousarray(map_y, dtype=np.float32)
         
-        # Apply remapping with smooth interpolation
-        result = cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC,
+        # Apply remapping - use INTER_LINEAR for 3-4x speedup vs CUBIC
+        result = cv2.remap(frame, map_x, map_y, cv2.INTER_LINEAR,
                           borderMode=cv2.BORDER_REFLECT_101)
         
         return result

@@ -108,8 +108,8 @@ class DimensionalWarpEffect(BaseEffect):
         matrix = cv2.getPerspectiveTransform(src_points, dst_points)
         
         return cv2.warpPerspective(frame, matrix, (w, h), 
-                                   flags=cv2.INTER_CUBIC,
-                                   borderMode=cv2.BORDER_REFLECT_101)
+                                   flags=cv2.INTER_LINEAR,
+                                   borderMode=cv2.BORDER_REFLECT)
     
     def _create_spherical_warp(self, 
                                frame: np.ndarray, 
@@ -156,7 +156,7 @@ class DimensionalWarpEffect(BaseEffect):
         map_x = np.ascontiguousarray(map_x, dtype=np.float32)
         map_y = np.ascontiguousarray(map_y, dtype=np.float32)
         
-        return cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC, 
+        return cv2.remap(frame, map_x, map_y, cv2.INTER_LINEAR, 
                         borderMode=cv2.BORDER_REFLECT_101)
     
     def _create_wave_distortion(self, 
@@ -210,7 +210,7 @@ class DimensionalWarpEffect(BaseEffect):
         map_x = np.ascontiguousarray(map_x, dtype=np.float32)
         map_y = np.ascontiguousarray(map_y, dtype=np.float32)
         
-        return cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC,
+        return cv2.remap(frame, map_x, map_y, cv2.INTER_LINEAR,
                         borderMode=cv2.BORDER_REFLECT_101)
     
     def _create_tunnel_warp(self, 
@@ -260,7 +260,7 @@ class DimensionalWarpEffect(BaseEffect):
         map_x = np.ascontiguousarray(map_x, dtype=np.float32)
         map_y = np.ascontiguousarray(map_y, dtype=np.float32)
         
-        return cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC,
+        return cv2.remap(frame, map_x, map_y, cv2.INTER_LINEAR,
                         borderMode=cv2.BORDER_REFLECT_101)
     
     def _create_multi_point_warp(self, 
@@ -304,7 +304,7 @@ class DimensionalWarpEffect(BaseEffect):
         map_x = np.ascontiguousarray(map_x, dtype=np.float32)
         map_y = np.ascontiguousarray(map_y, dtype=np.float32)
         
-        return cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC,
+        return cv2.remap(frame, map_x, map_y, cv2.INTER_LINEAR,
                         borderMode=cv2.BORDER_REFLECT_101)
     
     def _create_depth_layers(self, 
@@ -339,7 +339,7 @@ class DimensionalWarpEffect(BaseEffect):
         map_x = np.ascontiguousarray(map_x, dtype=np.float32)
         map_y = np.ascontiguousarray(map_y, dtype=np.float32)
         
-        return cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC,
+        return cv2.remap(frame, map_x, map_y, cv2.INTER_LINEAR,
                         borderMode=cv2.BORDER_REFLECT_101)
 
     def process(self, frame: np.ndarray, context: FrameContext) -> np.ndarray:

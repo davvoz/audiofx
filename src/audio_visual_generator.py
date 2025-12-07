@@ -34,7 +34,9 @@ class AudioVisualGenerator:
         effect_config: Optional[EffectConfig] = None,
         effect_style: EffectStyle = EffectStyle.STANDARD,
         target_resolution: Optional[Tuple[int, int]] = (720, 720),
-        progress_cb: ProgressCallback = None
+        progress_cb: ProgressCallback = None,
+        use_multiprocessing: bool = True,
+        num_workers: int = None
     ):
         """
         Initialize audio-visual generator.
@@ -50,6 +52,8 @@ class AudioVisualGenerator:
             target_resolution: Target video resolution (width, height).
                              If None, uses native image resolution.
             progress_cb: Optional progress callback function
+            use_multiprocessing: Enable parallel frame rendering (default: True)
+            num_workers: Number of worker processes (default: CPU count - 1)
         """
         self.audio_file = audio_file
         self.image_file = image_file
@@ -59,6 +63,8 @@ class AudioVisualGenerator:
         self.target_resolution = target_resolution
         self.progress_cb = progress_cb
         self.effect_style = effect_style
+        self.use_multiprocessing = use_multiprocessing
+        self.num_workers = num_workers
         
         # Set default effect config
         if effect_config is None:
@@ -137,26 +143,32 @@ class AudioVisualGenerator:
         if self.frame_generator is None:
             raise RuntimeError("Frame generator not initialized")
         
-        frames = []
         num_frames = len(analysis.bass_energy)
         
         if self.progress_cb:
             self.progress_cb("start", {"total_frames": num_frames})
         
-        for i in range(num_frames):
-            # Calculate color index based on time
-            current_time = i / self.fps
-            color_index = int(current_time * 2) % len(self.effect_config.colors)
-            
-            # Generate frame using frame generator
-            frame = self.frame_generator.generate_frame(i, analysis, color_index)
-            frames.append(frame)
-            
-            # Progress callback
-            if self.progress_cb and i % 10 == 0:
-                self.progress_cb("frame", {"index": i, "total": num_frames})
-        
-        return frames
+        # Use parallel processing if enabled
+        if self.use_multiprocessing:
+            if self.progress_cb:
+                self.progress_cb("status", {
+                    "message": f"Using parallel rendering (multiprocessing enabled)..."
+                })
+            return self.frame_generator.generate_frames_parallel(
+                analysis, 
+                num_frames, 
+                self.progress_cb,
+                num_workers=self.num_workers
+            )
+        else:
+            # Fallback to sequential processing
+            if self.progress_cb:
+                self.progress_cb("status", {"message": "Using sequential rendering..."})
+            return self.frame_generator.generate_frames(
+                analysis, 
+                num_frames, 
+                self.progress_cb
+            )
     
     def add_custom_effect(self, effect: BaseEffect) -> 'AudioVisualGenerator':
         """
