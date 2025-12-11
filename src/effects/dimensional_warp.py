@@ -26,7 +26,7 @@ class DimensionalWarpEffect(BaseEffect):
                  rotation_speed: float = 0.3,
                  perspective_depth: float = 120.0,
                  wave_frequency: float = 1.5,
-                 layer_count: int = 3,
+                 layer_count: int = 1,  # REDUCED from 3 to 1 for performance
                  smoothing: float = 0.85,
                  **kwargs):
         """

@@ -121,9 +121,9 @@ class FashionLightningEffect(BaseEffect):
             # Inner bright core
             cv2.line(frame, (x, y), (end_x, end_y), (255, 255, 255), 1, cv2.LINE_AA)
         
-        # Create intricate branches
-        if np.random.random() < self.branching_probability and branches_created < self.max_branches:
-            num_branches = np.random.randint(1, 3)  # 1-2 branches per segment
+        # Create branches (OPTIMIZED - reduced branching)
+        if np.random.random() < self.branching_probability * 0.5 and branches_created < self.max_branches:
+            num_branches = 1  # Single branch (was 1-2)
             
             for _ in range(num_branches):
                 # Branch direction varies from main direction
@@ -290,10 +290,10 @@ class FashionLightningEffect(BaseEffect):
         if not origins:
             return frame
         
-        # Generate lightning from each origin
+        # Generate lightning from each origin (OPTIMIZED - reduced bolt count)
         for origin_x, origin_y, color in origins:
-            # Random number of bolts from this origin
-            num_bolts = np.random.randint(1, 3)
+            # Single bolt per origin for performance (was 1-3)
+            num_bolts = 1
             
             for _ in range(num_bolts):
                 # Random initial direction

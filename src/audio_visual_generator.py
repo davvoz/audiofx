@@ -129,7 +129,10 @@ class AudioVisualGenerator:
     
     def _generate_frames(self, analysis: AudioAnalysis) -> List[np.ndarray]:
         """
-        Generate all video frames using OOP architecture.
+        Generate all video frames using OOP architecture (LEGACY MODE).
+        
+        WARNING: This loads all frames in RAM. For videos longer than 2 minutes,
+        use generate_streaming() instead!
         
         Args:
             analysis: Audio analysis results
@@ -169,6 +172,68 @@ class AudioVisualGenerator:
                 num_frames, 
                 self.progress_cb
             )
+    
+    def generate_streaming(self) -> None:
+        """
+        Generate video using STREAMING mode (MEMORY-EFFICIENT for long videos).
+        
+        This is the PROFESSIONAL approach: frames are written directly to disk
+        without accumulating in RAM. Use this for videos longer than 2 minutes.
+        """
+        from .core.streaming_video_writer import StreamingVideoWriter, ChunkedVideoProcessor
+        
+        if self.progress_cb:
+            self.progress_cb("status", {"message": "Starting STREAMING generation (memory-efficient)..."})
+        
+        # Step 1: Analyze audio
+        if self.progress_cb:
+            self.progress_cb("status", {"message": "Analyzing audio..."})
+        analysis = self.audio_analyzer.load_and_analyze(
+            self.audio_file,
+            self.duration,
+            self.fps
+        )
+        
+        # Step 2: Load and prepare image
+        if self.progress_cb:
+            self.progress_cb("status", {"message": "Loading image..."})
+        img = self._load_image()
+        
+        # Step 3: Setup frame generator
+        if self.progress_cb:
+            self.progress_cb("status", {"message": "Setting up effects..."})
+        effect_pipeline = self.style_manager.get_pipeline(self.effect_style)
+        self.frame_generator = FrameGenerator(img, effect_pipeline, self.fps)
+        
+        num_frames = len(analysis.bass_energy)
+        
+        if self.progress_cb:
+            self.progress_cb("start", {"total_frames": num_frames})
+        
+        # Step 4: Stream frames directly to video file
+        if self.progress_cb:
+            self.progress_cb("status", {"message": "Streaming frames to video..."})
+        
+        resolution = (img.shape[1], img.shape[0])  # width, height
+        
+        with StreamingVideoWriter(
+            self.output_file,
+            self.fps,
+            resolution,
+            crf=18,  # High quality
+            preset='medium'  # Balanced speed/compression
+        ) as writer:
+            # Generate frames one at a time and write immediately
+            for frame in self.frame_generator.generate_frames_streaming(
+                analysis,
+                num_frames,
+                self.progress_cb
+            ):
+                writer.write_frame(frame)
+                # Frame is immediately written and can be garbage collected
+            
+            # Step 5: Add audio using FFmpeg (fast!)
+            writer.finalize_with_audio(self.audio_file, self.progress_cb)
     
     def add_custom_effect(self, effect: BaseEffect) -> 'AudioVisualGenerator':
         """

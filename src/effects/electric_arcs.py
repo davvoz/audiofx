@@ -50,9 +50,9 @@ class ElectricArcsEffect(BaseEffect):
         result = frame.copy()
         h, w = result.shape[:2]
         
-        # Number of arcs based on intensity
-        num_arcs = int((total_intensity - self.threshold) * 25 * self.intensity)
-        num_arcs = max(1, min(num_arcs, 20))  # Clamp between 1-20
+        # Number of arcs based on intensity (REDUCED for performance)
+        num_arcs = int((total_intensity - self.threshold) * 15 * self.intensity)
+        num_arcs = max(1, min(num_arcs, 8))  # Clamp between 1-8 (was 1-20)
         
         for _ in range(num_arcs):
             # Generate random endpoints

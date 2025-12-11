@@ -177,11 +177,11 @@ class ShapeRenderer:
         """Draw a geometric shape with optional glow effect."""
         color_with_alpha = tuple(int(c * alpha) for c in color)
         
-        # Draw enhanced glow layers - more intense!
+        # Draw glow layers (OPTIMIZED - reduced from 5 to 2)
         if glow:
-            for i in range(5, 0, -1):  # More glow layers
-                glow_size = size + i * 3  # Bigger glow
-                glow_alpha = alpha * 0.35 * (6 - i) / 5  # Stronger glow
+            for i in range(2, 0, -1):
+                glow_size = size + i * 3
+                glow_alpha = alpha * 0.5 * (3 - i) / 2
                 glow_color = tuple(int(c * glow_alpha) for c in color)
                 ShapeRenderer._draw_shape_core(overlay, shape, x, y, glow_size, glow_color, rotation)
         
@@ -280,13 +280,9 @@ class BlobRenderer(ParticleRenderer):
         else:
             blended_color = tuple(min(255, int(c * 1.5)) for c in color)
         
-        # Draw multiple layers with different rotations and stronger alpha
-        for layer in range(3):
-            layer_size = size + (3 - layer) * 3
-            layer_alpha = alpha * (0.5 + 0.3 * layer)  # Increased visibility
-            layer_rotation = particle.rotation + layer * 15
-            ShapeRenderer.draw_shape(overlay, particle.shape, x, y, layer_size, 
-                                   blended_color, layer_rotation, layer_alpha, glow=True)
+        # Draw single layer (OPTIMIZED - removed loop)
+        ShapeRenderer.draw_shape(overlay, particle.shape, x, y, size, 
+                               blended_color, particle.rotation, alpha, glow=True)
 
 
 class SparkleRenderer(ParticleRenderer):
@@ -324,14 +320,13 @@ class SmokeRenderer(ParticleRenderer):
         else:
             smoke_color = tuple(min(255, int(c * 1.2)) for c in color)
         
-        # Draw multiple diffuse layers with increased visibility
-        for layer in range(4):
+        # Draw double layer (OPTIMIZED - reduced from 4 layers)
+        for layer in range(2):
             smoke_size = size + layer * 2
-            smoke_alpha = alpha * (0.25 * (4 - layer))  # More visible
+            smoke_alpha = alpha * (0.5 * (2 - layer))
             layer_rotation = particle.rotation + layer * 10
             ShapeRenderer.draw_shape(overlay, particle.shape, x, y, smoke_size, 
                                    smoke_color, layer_rotation, smoke_alpha, glow=True)
-
 
 class ParticleRendererFactory:
     """Factory for creating renderer strategies (Factory Pattern)."""
@@ -571,12 +566,12 @@ class GhostParticlesEffect(BaseEffect):
     DEFAULT_SAMPLE_DENSITY = 18
     DEFAULT_EXPLOSION_THRESHOLD = 0.5
     DEFAULT_PARTICLE_LIFETIME = 70.0
-    DEFAULT_MAX_PARTICLES = 600
+    DEFAULT_MAX_PARTICLES = 150  # REDUCED from 600 for performance
     COOLDOWN_FRAMES = 5
     SAMPLING_PROBABILITY = 0.6
     THRESHOLD_MULTIPLIER = 0.25
     BEAT_BOOST_FACTOR = 0.5
-    PARTICLE_COUNT_MULTIPLIER = 0.8
+    PARTICLE_COUNT_MULTIPLIER = 0.4  # REDUCED from 0.8 for performance
     MIN_PARTICLES_PER_EXPLOSION = 8
     BLEND_ALPHA = 1.1  # Increased for more vivid particles - SBAM!
     

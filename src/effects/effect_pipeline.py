@@ -52,12 +52,16 @@ class EffectPipeline:
         Returns:
             Frame after all effects applied
         """
+        # Copy-on-write optimization: only copy if we have enabled effects
+        enabled_effects = [e for e in self.effects if e.enabled]
+        if not enabled_effects:
+            return context.frame
+        
         result = context.frame.copy()
-        for effect in self.effects:
-            if effect.enabled:
-                # Update context with current frame
-                context.frame = result
-                result = effect.apply(context)
+        for effect in enabled_effects:
+            # Update context with current frame
+            context.frame = result
+            result = effect.apply(context)
         return result
     
     def clear(self) -> None:

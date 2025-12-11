@@ -103,17 +103,10 @@ class VideoGenerationService:
             fps=config.fps
         )
         
-        # Generate frames using parallel processing
+        # Generate frames using STREAMING (memory-efficient)
         num_frames = len(audio_data.bass_energy)
         self._emit_event('start', {'total_frames': num_frames})
-        self._emit_event('status', {'message': "Generazione frame (multiprocessing)..."})
-        
-        # Use parallel frame generation
-        frames = frame_generator.generate_frames_parallel(
-            audio_analysis=audio_data,
-            num_frames=num_frames,
-            progress_cb=self._emit_event
-        )
+        self._emit_event('status', {'message': "Generazione frame (streaming mode)..."})
         
         # Load logo if provided
         logo_img = None
@@ -124,43 +117,65 @@ class VideoGenerationService:
             except Exception as e:
                 self._emit_event('status', {'message': f"Errore logo: {e}"})
         
-        # Write to temporary video
-        temp_video_avi = tempfile.mktemp(suffix='_temp.avi', dir=os.path.dirname(config.output_path))
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        writer = cv2.VideoWriter(temp_video_avi, fourcc, config.fps, (width, height))
+        # Use PARALLEL rendering for speed (much faster!)
+        import multiprocessing as mp
         
-        for idx, frame in enumerate(frames):
-            if self._cancel_requested:
-                writer.release()
-                os.remove(temp_video_avi)
-                return
-            
-            if idx % 30 == 0:
-                self._emit_event('status', {'message': f"Scrivendo frame {idx}/{num_frames}..."})
-            
-            # Apply logo
-            if logo_img is not None:
-                frame = apply_logo_to_frame(
-                    frame, logo_img, config.logo_position, 
-                    config.logo_scale, config.logo_opacity, config.logo_margin
-                )
-            
-            writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
-            del frame
+        num_workers = max(1, mp.cpu_count() - 1)
+        self._emit_event('status', {'message': f"Rendering con {num_workers} workers paralleli..."})
         
-        writer.release()
+        # Generate frames in parallel
+        frames = frame_generator.generate_frames_parallel(
+            audio_analysis=audio_data,
+            num_frames=num_frames,
+            progress_cb=self._emit_event,
+            num_workers=num_workers,
+            batch_size=10
+        )
+        
+        # Now write to video with streaming
+        from src.core.streaming_video_writer import StreamingVideoWriter
+        output_dir = os.path.dirname(os.path.abspath(config.output_path))
+        temp_video_mp4 = os.path.join(output_dir, 'temp_video_no_audio.mp4')
+        
+        self._emit_event('status', {'message': f"Scrivendo {num_frames} frames su video..."})
+        
+        with StreamingVideoWriter(temp_video_mp4, config.fps, (width, height)) as writer:
+            for idx, frame in enumerate(frames):
+                if self._cancel_requested:
+                    if os.path.exists(temp_video_mp4):
+                        os.remove(temp_video_mp4)
+                    return
+                
+                # Progress every 30 frames
+                if idx % 30 == 0:
+                    self._emit_event('status', {'message': f"Scrittura frame {idx}/{num_frames}"})
+                
+                # Apply logo
+                if logo_img is not None:
+                    frame = apply_logo_to_frame(
+                        frame, logo_img, config.logo_position, 
+                        config.logo_scale, config.logo_opacity, config.logo_margin
+                    )
+                
+                writer.write_frame(frame)
+        
+        # Verify temp file exists
+        if not os.path.exists(temp_video_mp4):
+            raise RuntimeError(f"File temp non creato: {temp_video_mp4}")
+        
+        self._emit_event('status', {'message': f"Video temp creato: {os.path.getsize(temp_video_mp4)} bytes"})
         
         # Add audio with ffmpeg
-        self._emit_event('status', {'message': "Aggiunta audio..."})
+        self._emit_event('status', {'message': "Aggiunta audio con FFmpeg..."})
         video_duration = num_frames / config.fps
         
         try:
             subprocess.run([
-                'ffmpeg', '-y', '-i', temp_video_avi, '-i', config.audio_path,
+                'ffmpeg', '-y', '-i', temp_video_mp4, '-i', config.audio_path,
                 '-t', str(video_duration),
                 '-c:v', 'libx264', '-c:a', 'aac', config.output_path
             ], check=True, capture_output=True)
-            os.remove(temp_video_avi)
+            os.remove(temp_video_mp4)
         except (subprocess.CalledProcessError, FileNotFoundError):
             # Fallback to moviepy
             try:
@@ -168,7 +183,7 @@ class VideoGenerationService:
             except ImportError:
                 from moviepy.editor import VideoFileClip, AudioFileClip
             
-            video_clip = VideoFileClip(temp_video_avi)
+            video_clip = VideoFileClip(temp_video_mp4)
             audio_clip = AudioFileClip(config.audio_path).subclip(0, video_duration)
             final_clip = video_clip.set_audio(audio_clip)
             final_clip.write_videofile(config.output_path, codec='libx264', 
@@ -176,7 +191,7 @@ class VideoGenerationService:
             video_clip.close()
             audio_clip.close()
             final_clip.close()
-            os.remove(temp_video_avi)
+            os.remove(temp_video_mp4)
         
         self._emit_event('done', {'output': config.output_path})
     

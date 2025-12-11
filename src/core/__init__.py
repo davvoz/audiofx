@@ -8,6 +8,7 @@ from .video_exporter import VideoExporter
 from .frequency_analyzer import FrequencyAnalyzer
 from .beat_detector import BeatDetector
 from .section_analyzer import SectionAnalyzer
+from .streaming_video_writer import StreamingVideoWriter, ChunkedVideoProcessor
 
 __all__ = [
     'AudioAnalyzer',
@@ -16,4 +17,6 @@ __all__ = [
     'FrequencyAnalyzer',
     'BeatDetector',
     'SectionAnalyzer',
+    'StreamingVideoWriter',
+    'ChunkedVideoProcessor',
 ]
